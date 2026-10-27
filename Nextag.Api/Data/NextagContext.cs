@@ -16,8 +16,6 @@ public partial class NextagContext : DbContext
     {
     }
 
-    public virtual DbSet<Area> Areas { get; set; }
-
     public virtual DbSet<AspNetRole> AspNetRoles { get; set; }
 
     public virtual DbSet<AspNetRoleClaim> AspNetRoleClaims { get; set; }
@@ -32,34 +30,10 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<AspNetUserToken> AspNetUserTokens { get; set; }
 
-    public virtual DbSet<Departamento> Departamentos { get; set; }
-
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Area>(entity =>
-        {
-            entity.ToTable("Area");
-
-            entity.HasIndex(e => e.Clave, "UX_Area_Clave").IsUnique();
-
-            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
-            entity.Property(e => e.Activo)
-                .IsRequired()
-                .HasDefaultValueSql("((1))");
-            entity.Property(e => e.Clave)
-                .HasMaxLength(30)
-                .IsUnicode(false);
-            entity.Property(e => e.Descripcion)
-                .HasMaxLength(500)
-                .IsUnicode(false);
-            entity.Property(e => e.FechaCreacion).HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Nombre)
-                .HasMaxLength(150)
-                .IsUnicode(false);
-        });
-
         modelBuilder.Entity<AspNetRole>(entity =>
         {
             entity.Property(e => e.Name).HasMaxLength(256);
@@ -129,37 +103,6 @@ public partial class NextagContext : DbContext
             entity.HasKey(e => new { e.UserId, e.LoginProvider, e.Name });
 
             entity.HasOne(d => d.User).WithMany(p => p.AspNetUserTokens).HasForeignKey(d => d.UserId);
-        });
-
-        modelBuilder.Entity<Departamento>(entity =>
-        {
-            entity.ToTable("Departamento");
-
-            entity.HasIndex(e => e.AreaId, "IX_Departamento_AreaId");
-
-            entity.HasIndex(e => new { e.AreaId, e.Nombre }, "UX_Departamento_Area_Nombre").IsUnique();
-
-            entity.HasIndex(e => e.Clave, "UX_Departamento_Clave").IsUnique();
-
-            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
-            entity.Property(e => e.Activo)
-                .IsRequired()
-                .HasDefaultValueSql("((1))");
-            entity.Property(e => e.Clave)
-                .HasMaxLength(30)
-                .IsUnicode(false);
-            entity.Property(e => e.Descripcion)
-                .HasMaxLength(500)
-                .IsUnicode(false);
-            entity.Property(e => e.FechaCreacion).HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Nombre)
-                .HasMaxLength(150)
-                .IsUnicode(false);
-
-            entity.HasOne(d => d.Area).WithMany(p => p.Departamentos)
-                .HasForeignKey(d => d.AreaId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Departamento_Area");
         });
 
         modelBuilder.Entity<Usuario>(entity =>

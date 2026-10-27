@@ -62,8 +62,6 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
 //administrador
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IUsuarioAdministradorService, UsuarioAdministradorService>();
-builder.Services.AddScoped<IAreaAdministradorService, AreaAdministradorService>();
-builder.Services.AddScoped<IDepartamentoAdministradorService, DepartamentoAdministradorService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
