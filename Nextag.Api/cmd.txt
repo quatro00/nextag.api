@@ -1,0 +1,1 @@
+Scaffold-DbContext "Name=ConnectionStrings:NextagConnection" Microsoft.EntityFrameworkCore.SqlServer -OutputDir Models/Domain -ContextDir Data -Context NextagContext -NoOnConfiguring -Force

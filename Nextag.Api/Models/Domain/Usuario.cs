@@ -38,4 +38,6 @@ public partial class Usuario
     public DateTime? FechaActualizacion { get; set; }
 
     public virtual AspNetUser AspNetUser { get; set; } = null!;
+
+    public virtual ICollection<UsuarioEmpresa> UsuarioEmpresas { get; set; } = new List<UsuarioEmpresa>();
 }

@@ -32,6 +32,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
+    public virtual DbSet<UsuarioEmpresa> UsuarioEmpresas { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AspNetRole>(entity =>
@@ -105,6 +107,32 @@ public partial class NextagContext : DbContext
             entity.HasOne(d => d.User).WithMany(p => p.AspNetUserTokens).HasForeignKey(d => d.UserId);
         });
 
+        modelBuilder.Entity<Empresa>(entity =>
+        {
+            entity.ToTable("Empresa");
+
+            entity.HasIndex(e => new { e.Activo, e.Nombre }, "IX_Empresa_Activo_Nombre");
+
+            entity.HasIndex(e => e.Clave, "UQ_Empresa_Clave").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Correo).HasMaxLength(256);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.LogoUrl).HasMaxLength(500);
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.RazonSocial).HasMaxLength(250);
+            entity.Property(e => e.Rfc).HasMaxLength(20);
+            entity.Property(e => e.SitioWeb).HasMaxLength(250);
+            entity.Property(e => e.Telefono).HasMaxLength(30);
+        });
+
         modelBuilder.Entity<Usuario>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK_correo_Usuario");
@@ -133,6 +161,37 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => d.AspNetUserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_correo_Usuario_AspNetUsers");
+        });
+
+        modelBuilder.Entity<UsuarioEmpresa>(entity =>
+        {
+            entity.ToTable("UsuarioEmpresa");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Activo }, "IX_UsuarioEmpresa_EmpresaId_Activo");
+
+            entity.HasIndex(e => new { e.UsuarioId, e.EmpresaId }, "UQ_UsuarioEmpresa").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaAsignacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.UsuarioEmpresas)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UsuarioEmpresa_Empresa");
+
+            entity.HasOne(d => d.Usuario).WithMany(p => p.UsuarioEmpresas)
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UsuarioEmpresa_Usuario");
         });
 
         OnModelCreatingPartial(modelBuilder);
