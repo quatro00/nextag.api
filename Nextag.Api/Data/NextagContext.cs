@@ -30,6 +30,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<AspNetUserToken> AspNetUserTokens { get; set; }
 
+    public virtual DbSet<Empresa> Empresas { get; set; }
+
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
     public virtual DbSet<UsuarioEmpresa> UsuarioEmpresas { get; set; }
