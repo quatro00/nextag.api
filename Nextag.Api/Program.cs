@@ -59,9 +59,12 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("NextagConnection"));
 });
 
-//administrador
+// Repositories
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+
+// Servicios administrador
 builder.Services.AddScoped<IUsuarioAdministradorService, UsuarioAdministradorService>();
+builder.Services.AddScoped<IEmpresaAdministradorService, EmpresaAdministradorService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
