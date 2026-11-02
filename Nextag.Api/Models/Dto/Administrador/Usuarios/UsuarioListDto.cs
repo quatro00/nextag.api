@@ -10,5 +10,6 @@
         public bool Activo { get; set; }
         public DateTime? FechaUltimoAcceso { get; set; }
         public List<string> Roles { get; set; } = new();
+        public List<string> Empresas { get; set; } = new();
     }
 }

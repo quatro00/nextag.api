@@ -20,5 +20,6 @@ namespace Nextag.Api.Models.Dto.Administrador.Usuarios
         public string? CodigoPais { get; set; }
         public string? Empresa { get; set; }
         public string? DominioPrincipal { get; set; }
+        public List<Guid>? EmpresaIds { get; set; }
     }
 }

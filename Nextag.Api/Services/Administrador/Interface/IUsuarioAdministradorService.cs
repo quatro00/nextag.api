@@ -7,8 +7,8 @@ namespace Nextag.Api.Services.Administrador.Interface
     {
         Task<List<UsuarioListDto>> GetAllAsync();
         Task<UsuarioDetalleDto?> GetByIdAsync(Guid id);
-        Task<ServiceResult<UsuarioDetalleDto>> CreateAsync(UsuarioCreateDto dto);
-        Task<ServiceResult<UsuarioDetalleDto>> UpdateAsync(Guid id, UsuarioUpdateDto dto);
+        Task<ServiceResult<UsuarioDetalleDto>> CreateAsync(UsuarioCreateDto dto, Guid usuarioCreacion);
+        Task<ServiceResult<UsuarioDetalleDto>> UpdateAsync(Guid id, UsuarioUpdateDto dto, Guid usuarioModificacion);
         Task<ServiceResult<bool>> UpdateStatusAsync(Guid id, bool activo);
         Task<ServiceResult<UsuarioDetalleDto>> UpdateRolesAsync(Guid id, List<string> roles);
     }

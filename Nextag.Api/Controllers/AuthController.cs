@@ -84,7 +84,37 @@ namespace Nextag.Api.Controllers
                 });
             }
 
-            var roles = (await userManager.GetRolesAsync(user)).ToList();
+            var sistemaId = await context.AspNetSystems.AsNoTracking()
+                .Where(x => x.Clave == "NEXTAG")
+                .Select(x => (int?)x.Id)
+                .FirstOrDefaultAsync();
+
+            if (!sistemaId.HasValue)
+                return Unauthorized(new { message = "El sistema NEXTAG no está configurado." });
+
+            var rolesDisponibles = await roleManager.Roles.AsNoTracking()
+                .Where(x => x.SistemaId == sistemaId.Value && x.Name != null)
+                .Select(x => x.Name!)
+                .ToListAsync();
+
+            var rolesUsuario = await userManager.GetRolesAsync(user);
+
+            var roles = rolesUsuario
+                .Where(x => rolesDisponibles.Contains(x, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (roles.Count != 1)
+                return Unauthorized(new { message = "El usuario debe tener exactamente un rol de NexTag." });
+
+            if (!roles[0].Equals("ADMINISTRADOR", StringComparison.OrdinalIgnoreCase))
+            {
+                var tieneEmpresa = await context.UsuarioEmpresas.AsNoTracking()
+                    .AnyAsync(x => x.UsuarioId == usuario.Id && x.Activo == true && x.Empresa.Activo == true);
+
+                if (!tieneEmpresa)
+                    return Unauthorized(new { message = "El usuario no tiene empresas activas asignadas." });
+            }
 
             var token = tokenRepository.CreateJwtToken(user, usuario.Id.ToString(), roles);
 

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Nextag.Api.Helpers;
 using Nextag.Api.Models.Dto.Administrador.Usuarios;
 using Nextag.Api.Services.Administrador.Interface;
 
@@ -34,7 +35,7 @@ namespace Nextag.Api.Controllers.Administrador
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] UsuarioCreateDto dto)
         {
-            var result = await service.CreateAsync(dto);
+            var result = await service.CreateAsync(dto, User.GetUsuarioId());
             if (!result.Success) return BadRequest(new { message = result.Message });
             return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
         }
@@ -42,7 +43,7 @@ namespace Nextag.Api.Controllers.Administrador
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UsuarioUpdateDto dto)
         {
-            var result = await service.UpdateAsync(id, dto);
+            var result = await service.UpdateAsync(id, dto, User.GetUsuarioId());
             if (!result.Success) return BadRequest(new { message = result.Message });
             return Ok(result.Data);
         }

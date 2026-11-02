@@ -26,11 +26,12 @@ namespace Nextag.Api.Services.Administrador.Implementation
             var sistemaId = await GetSistemaIdAsync();
 
             var usuarios = await context.Usuarios.AsNoTracking()
-                .Include(x => x.AspNetUser)
-                .ThenInclude(x => x.Roles)
-                .OrderBy(x => x.Nombre)
-                .ThenBy(x => x.Apellidos)
-                .ToListAsync();
+            .Include(x => x.AspNetUser).ThenInclude(x => x.Roles)
+            .Include(x => x.UsuarioEmpresas).ThenInclude(x => x.Empresa)
+            .AsSplitQuery()
+            .OrderBy(x => x.Nombre)
+            .ThenBy(x => x.Apellidos)
+            .ToListAsync();
 
             return usuarios.Select(x => new UsuarioListDto
             {
@@ -41,6 +42,11 @@ namespace Nextag.Api.Services.Administrador.Implementation
                 Email = x.Email,
                 Activo = x.Activo == true,
                 FechaUltimoAcceso = x.FechaUltimoAcceso,
+                Empresas = x.UsuarioEmpresas
+                    .Where(e => e.Activo == true)
+                    .Select(e => e.Empresa.Nombre)
+                    .OrderBy(e => e)
+                    .ToList(),
                 Roles = x.AspNetUser.Roles
                     .Where(r => sistemaId.HasValue && r.SistemaId == sistemaId.Value && r.Name != null)
                     .Select(r => r.Name!)
@@ -54,8 +60,9 @@ namespace Nextag.Api.Services.Administrador.Implementation
             var sistemaId = await GetSistemaIdAsync();
 
             var usuario = await context.Usuarios.AsNoTracking()
-                .Include(x => x.AspNetUser)
-                .ThenInclude(x => x.Roles)
+                .Include(x => x.AspNetUser).ThenInclude(x => x.Roles)
+                .Include(x => x.UsuarioEmpresas)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (usuario == null) return null;
@@ -63,15 +70,23 @@ namespace Nextag.Api.Services.Administrador.Implementation
             return MapDetalle(usuario, sistemaId);
         }
 
-        public async Task<ServiceResult<UsuarioDetalleDto>> CreateAsync(UsuarioCreateDto dto)
+        public async Task<ServiceResult<UsuarioDetalleDto>> CreateAsync(UsuarioCreateDto dto, Guid usuarioCreacion)
         {
-            var email = dto.Email.Trim().ToLower();
+            var email = dto.Email.Trim().ToLowerInvariant();
 
             if (await userManager.FindByEmailAsync(email) != null)
                 return ServiceResult<UsuarioDetalleDto>.Fail("Ya existe un usuario con ese correo.");
 
             var rolesResult = await ValidarRolesAsync(dto.Roles);
-            if (!rolesResult.Success) return ServiceResult<UsuarioDetalleDto>.Fail(rolesResult.Message!);
+            if (!rolesResult.Success)
+                return ServiceResult<UsuarioDetalleDto>.Fail(rolesResult.Message!);
+
+            var rol = rolesResult.Data![0];
+            var esAdministrador = rol.Equals("ADMINISTRADOR", StringComparison.OrdinalIgnoreCase);
+
+            var empresasResult = await ValidarEmpresasAsync(dto.EmpresaIds, esAdministrador);
+            if (!empresasResult.Success)
+                return ServiceResult<UsuarioDetalleDto>.Fail(empresasResult.Message!);
 
             var identityUser = new IdentityUser
             {
@@ -81,26 +96,23 @@ namespace Nextag.Api.Services.Administrador.Implementation
             };
 
             var identityResult = await userManager.CreateAsync(identityUser, dto.Password);
-
             if (!identityResult.Succeeded)
                 return ServiceResult<UsuarioDetalleDto>.Fail(GetIdentityErrors(identityResult));
 
+            var usuarioId = Guid.NewGuid();
+
             try
             {
-                if (rolesResult.Data!.Count > 0)
+                var roleResult = await userManager.AddToRoleAsync(identityUser, rol);
+                if (!roleResult.Succeeded)
                 {
-                    var roleResult = await userManager.AddToRolesAsync(identityUser, rolesResult.Data);
-
-                    if (!roleResult.Succeeded)
-                    {
-                        await userManager.DeleteAsync(identityUser);
-                        return ServiceResult<UsuarioDetalleDto>.Fail(GetIdentityErrors(roleResult));
-                    }
+                    await userManager.DeleteAsync(identityUser);
+                    return ServiceResult<UsuarioDetalleDto>.Fail(GetIdentityErrors(roleResult));
                 }
 
                 var usuario = new Usuario
                 {
-                    Id = Guid.NewGuid(),
+                    Id = usuarioId,
                     AspNetUserId = identityUser.Id,
                     Nombre = dto.Nombre.Trim(),
                     Apellidos = dto.Apellidos.Trim(),
@@ -109,49 +121,72 @@ namespace Nextag.Api.Services.Administrador.Implementation
                     Celular = Normalizar(dto.Celular),
                     Pais = Normalizar(dto.Pais),
                     CodigoPais = Normalizar(dto.CodigoPais),
-                    Empresa = Normalizar(dto.Empresa),
+                    Empresa = null,
                     DominioPrincipal = NormalizarDominio(dto.DominioPrincipal),
-                    EsAdministrador = rolesResult.Data.Any(x => x.Equals("ADMINISTRADOR", StringComparison.OrdinalIgnoreCase)),
+                    EsAdministrador = esAdministrador,
                     Activo = true,
                     FechaCreacion = DateTime.UtcNow
                 };
 
+                foreach (var empresaId in empresasResult.Data!)
+                {
+                    usuario.UsuarioEmpresas.Add(new UsuarioEmpresa
+                    {
+                        UsuarioId = usuario.Id,
+                        EmpresaId = empresaId,
+                        Activo = true,
+                        UsuarioCreacion = usuarioCreacion
+                    });
+                }
+
                 context.Usuarios.Add(usuario);
                 await context.SaveChangesAsync();
-
-                var detalle = await GetByIdAsync(usuario.Id);
-                return ServiceResult<UsuarioDetalleDto>.Ok(detalle!);
             }
             catch
             {
                 await userManager.DeleteAsync(identityUser);
                 throw;
             }
+
+            var detalle = await GetByIdAsync(usuarioId);
+            return ServiceResult<UsuarioDetalleDto>.Ok(detalle!);
         }
 
-        public async Task<ServiceResult<UsuarioDetalleDto>> UpdateAsync(Guid id, UsuarioUpdateDto dto)
+        public async Task<ServiceResult<UsuarioDetalleDto>> UpdateAsync(Guid id, UsuarioUpdateDto dto, Guid usuarioModificacion)
         {
             var usuario = await context.Usuarios.FirstOrDefaultAsync(x => x.Id == id);
-
             if (usuario == null)
                 return ServiceResult<UsuarioDetalleDto>.Fail("Usuario no encontrado.");
 
             var identityUser = await userManager.FindByIdAsync(usuario.AspNetUserId);
-
             if (identityUser == null)
                 return ServiceResult<UsuarioDetalleDto>.Fail("El usuario no tiene una cuenta de acceso válida.");
 
-            var email = dto.Email.Trim().ToLower();
+            var email = dto.Email.Trim().ToLowerInvariant();
             var existente = await userManager.FindByEmailAsync(email);
 
             if (existente != null && existente.Id != identityUser.Id)
                 return ServiceResult<UsuarioDetalleDto>.Fail("Ya existe otro usuario con ese correo.");
 
+            List<Guid>? empresaIds = null;
+
+            if (dto.EmpresaIds != null)
+            {
+                var rolesActuales = await userManager.GetRolesAsync(identityUser);
+                var esAdministrador = rolesActuales.Any(x =>
+                    x.Equals("ADMINISTRADOR", StringComparison.OrdinalIgnoreCase));
+
+                var empresasResult = await ValidarEmpresasAsync(dto.EmpresaIds, esAdministrador);
+                if (!empresasResult.Success)
+                    return ServiceResult<UsuarioDetalleDto>.Fail(empresasResult.Message!);
+
+                empresaIds = empresasResult.Data!;
+            }
+
             identityUser.Email = email;
             identityUser.UserName = email;
 
             var identityResult = await userManager.UpdateAsync(identityUser);
-
             if (!identityResult.Succeeded)
                 return ServiceResult<UsuarioDetalleDto>.Fail(GetIdentityErrors(identityResult));
 
@@ -162,9 +197,15 @@ namespace Nextag.Api.Services.Administrador.Implementation
             usuario.Celular = Normalizar(dto.Celular);
             usuario.Pais = Normalizar(dto.Pais);
             usuario.CodigoPais = Normalizar(dto.CodigoPais);
-            usuario.Empresa = Normalizar(dto.Empresa);
+            usuario.Empresa = null;
             usuario.DominioPrincipal = NormalizarDominio(dto.DominioPrincipal);
             usuario.FechaActualizacion = DateTime.UtcNow;
+
+            if (empresaIds != null)
+            {
+                await context.Entry(usuario).Collection(x => x.UsuarioEmpresas).LoadAsync();
+                SincronizarEmpresas(usuario, empresaIds, usuarioModificacion);
+            }
 
             await context.SaveChangesAsync();
 
@@ -203,6 +244,17 @@ namespace Nextag.Api.Services.Administrador.Implementation
 
             if (!rolesResult.Success)
                 return ServiceResult<UsuarioDetalleDto>.Fail(rolesResult.Message!);
+
+            var nuevoRol = rolesResult.Data![0];
+
+            if (!nuevoRol.Equals("ADMINISTRADOR", StringComparison.OrdinalIgnoreCase))
+            {
+                var tieneEmpresa = await context.UsuarioEmpresas.AsNoTracking()
+                    .AnyAsync(x => x.UsuarioId == id && x.Activo == true && x.Empresa.Activo == true);
+
+                if (!tieneEmpresa)
+                    return ServiceResult<UsuarioDetalleDto>.Fail("Asigna al menos una empresa activa antes de cambiar el rol.");
+            }
 
             var sistemaId = await GetSistemaIdAsync();
 
@@ -274,7 +326,9 @@ namespace Nextag.Api.Services.Administrador.Implementation
                 .ToListAsync();
 
             var lookup = disponibles.ToDictionary(x => x.ToUpperInvariant(), x => x);
-            var solicitados = roles.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim().ToUpperInvariant()).Distinct().ToList();
+            var solicitados = (roles ?? new List<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim().ToUpperInvariant()).Distinct().ToList();
+
+            if (solicitados.Count != 1) return ServiceResult<List<string>>.Fail("El usuario debe tener exactamente un rol de NexTag.");
             var invalidos = solicitados.Where(x => !lookup.ContainsKey(x)).ToList();
 
             if (invalidos.Count > 0)
@@ -302,6 +356,10 @@ namespace Nextag.Api.Services.Administrador.Implementation
                 FechaUltimoAcceso = usuario.FechaUltimoAcceso,
                 FechaCreacion = usuario.FechaCreacion,
                 FechaActualizacion = usuario.FechaActualizacion,
+                EmpresaIds = usuario.UsuarioEmpresas
+                    .Where(x => x.Activo == true)
+                    .Select(x => x.EmpresaId)
+                    .ToList(),
                 Roles = usuario.AspNetUser.Roles
                     .Where(x => sistemaId.HasValue && x.SistemaId == sistemaId.Value && x.Name != null)
                     .Select(x => x.Name!)
@@ -329,6 +387,55 @@ namespace Nextag.Api.Services.Administrador.Implementation
                 .Replace("http://", "")
                 .Replace("www.", "")
                 .Trim('/');
+        }
+        private static void SincronizarEmpresas(Usuario usuario, List<Guid> empresaIds, Guid usuarioModificacion)
+        {
+            var ids = empresaIds.ToHashSet();
+            var fecha = DateTime.UtcNow;
+
+            foreach (var relacion in usuario.UsuarioEmpresas)
+            {
+                var debeEstarActiva = ids.Contains(relacion.EmpresaId);
+                if (relacion.Activo == debeEstarActiva) continue;
+
+                relacion.Activo = debeEstarActiva;
+                relacion.FechaActualizacion = fecha;
+                relacion.UsuarioModificacion = usuarioModificacion;
+
+                if (debeEstarActiva) relacion.FechaAsignacion = fecha;
+            }
+
+            var existentes = usuario.UsuarioEmpresas.Select(x => x.EmpresaId).ToHashSet();
+
+            foreach (var empresaId in ids.Where(x => !existentes.Contains(x)))
+            {
+                usuario.UsuarioEmpresas.Add(new UsuarioEmpresa
+                {
+                    UsuarioId = usuario.Id,
+                    EmpresaId = empresaId,
+                    Activo = true,
+                    UsuarioCreacion = usuarioModificacion
+                });
+            }
+        }
+
+        private async Task<ServiceResult<List<Guid>>> ValidarEmpresasAsync(List<Guid>? empresaIds, bool esAdministradorGlobal)
+        {
+            var ids = (empresaIds ?? new List<Guid>()).Distinct().ToList();
+
+            if (ids.Any(x => x == Guid.Empty))
+                return ServiceResult<List<Guid>>.Fail("Se recibió un identificador de empresa inválido.");
+
+            if (ids.Count == 0 && !esAdministradorGlobal)
+                return ServiceResult<List<Guid>>.Fail("El usuario debe tener al menos una empresa asignada.");
+
+            var cantidad = await context.Empresas.AsNoTracking()
+                .CountAsync(x => ids.Contains(x.Id) && x.Activo == true);
+
+            if (cantidad != ids.Count)
+                return ServiceResult<List<Guid>>.Fail("Una o varias empresas no existen o están inactivas.");
+
+            return ServiceResult<List<Guid>>.Ok(ids);
         }
     }
 }

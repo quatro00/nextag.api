@@ -18,5 +18,6 @@
         public DateTime FechaCreacion { get; set; }
         public DateTime? FechaActualizacion { get; set; }
         public List<string> Roles { get; set; } = new();
+        public List<Guid> EmpresaIds { get; set; } = new();
     }
 }

@@ -27,5 +27,6 @@ namespace Nextag.Api.Models.Dto.Administrador.Usuarios
 
         [MinLength(1)]
         public List<string> Roles { get; set; } = new();
+        public List<Guid> EmpresaIds { get; set; } = new();
     }
 }
