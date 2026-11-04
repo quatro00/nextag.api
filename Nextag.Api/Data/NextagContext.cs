@@ -32,6 +32,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<Empresa> Empresas { get; set; }
 
+    public virtual DbSet<Sucursal> Sucursals { get; set; }
+
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
     public virtual DbSet<UsuarioEmpresa> UsuarioEmpresas { get; set; }
@@ -133,6 +135,40 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Rfc).HasMaxLength(20);
             entity.Property(e => e.SitioWeb).HasMaxLength(250);
             entity.Property(e => e.Telefono).HasMaxLength(30);
+        });
+
+        modelBuilder.Entity<Sucursal>(entity =>
+        {
+            entity.ToTable("Sucursal");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Activo, e.Nombre }, "IX_Sucursal_EmpresaId_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_Sucursal_EmpresaId_Clave").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.CodigoPostal).HasMaxLength(15);
+            entity.Property(e => e.Colonia).HasMaxLength(150);
+            entity.Property(e => e.Correo).HasMaxLength(256);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.Direccion).HasMaxLength(300);
+            entity.Property(e => e.Estado).HasMaxLength(150);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Municipio).HasMaxLength(150);
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.Pais).HasMaxLength(100);
+            entity.Property(e => e.Telefono).HasMaxLength(30);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Sucursals)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Sucursal_Empresa");
         });
 
         modelBuilder.Entity<Usuario>(entity =>
