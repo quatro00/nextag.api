@@ -10,6 +10,8 @@ using Nextag.Api.Services.Administrador.Implementation;
 using Nextag.Api.Services.Administrador.Interface;
 using Nextag.Api.Services.Sucursales.Implementation;
 using Nextag.Api.Services.Sucursales.Interface;
+using Nextag.Api.Services.TiposUbicacion.Implementation;
+using Nextag.Api.Services.TiposUbicacion.Interface;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -68,6 +70,7 @@ builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IUsuarioAdministradorService, UsuarioAdministradorService>();
 builder.Services.AddScoped<IEmpresaAdministradorService, EmpresaAdministradorService>();
 builder.Services.AddScoped<ISucursalService, SucursalService>();
+builder.Services.AddScoped<ITipoUbicacionService, TipoUbicacionService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
