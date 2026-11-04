@@ -12,6 +12,8 @@ using Nextag.Api.Services.Sucursales.Implementation;
 using Nextag.Api.Services.Sucursales.Interface;
 using Nextag.Api.Services.TiposUbicacion.Implementation;
 using Nextag.Api.Services.TiposUbicacion.Interface;
+using Nextag.Api.Services.Ubicaciones.Implementation;
+using Nextag.Api.Services.Ubicaciones.Interface;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -71,6 +73,7 @@ builder.Services.AddScoped<IUsuarioAdministradorService, UsuarioAdministradorSer
 builder.Services.AddScoped<IEmpresaAdministradorService, EmpresaAdministradorService>();
 builder.Services.AddScoped<ISucursalService, SucursalService>();
 builder.Services.AddScoped<ITipoUbicacionService, TipoUbicacionService>();
+builder.Services.AddScoped<IUbicacionService, UbicacionService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
