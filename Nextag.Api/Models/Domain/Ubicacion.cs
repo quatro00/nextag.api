@@ -35,17 +35,9 @@ public partial class Ubicacion
 
     public virtual ICollection<Ubicacion> InverseUbicacionNavigation { get; set; } = new List<Ubicacion>();
 
-    public virtual ICollection<Ubicacion> InverseUbicacionPadre { get; set; } = new List<Ubicacion>();
-
     public virtual Sucursal Sucursal { get; set; } = null!;
-
-    public virtual Sucursal SucursalNavigation { get; set; } = null!;
 
     public virtual TipoUbicacion? TipoUbicacion { get; set; }
 
-    public virtual TipoUbicacion? TipoUbicacionNavigation { get; set; }
-
     public virtual Ubicacion? UbicacionNavigation { get; set; }
-
-    public virtual Ubicacion? UbicacionPadre { get; set; }
 }

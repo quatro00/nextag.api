@@ -236,26 +236,13 @@ public partial class NextagContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Ubicacion_Empresa");
 
-            entity.HasOne(d => d.Sucursal).WithMany(p => p.UbicacionSucursals)
-                .HasForeignKey(d => d.SucursalId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Ubicacion_Sucursal");
-
-            entity.HasOne(d => d.TipoUbicacion).WithMany(p => p.UbicacionTipoUbicacions)
-                .HasForeignKey(d => d.TipoUbicacionId)
-                .HasConstraintName("FK_Ubicacion_TipoUbicacion");
-
-            entity.HasOne(d => d.UbicacionPadre).WithMany(p => p.InverseUbicacionPadre)
-                .HasForeignKey(d => d.UbicacionPadreId)
-                .HasConstraintName("FK_Ubicacion_Padre");
-
-            entity.HasOne(d => d.SucursalNavigation).WithMany(p => p.UbicacionSucursalNavigations)
+            entity.HasOne(d => d.Sucursal).WithMany(p => p.Ubicacions)
                 .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
                 .HasForeignKey(d => new { d.EmpresaId, d.SucursalId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Ubicacion_EmpresaSucursal");
 
-            entity.HasOne(d => d.TipoUbicacionNavigation).WithMany(p => p.UbicacionTipoUbicacionNavigations)
+            entity.HasOne(d => d.TipoUbicacion).WithMany(p => p.Ubicacions)
                 .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
                 .HasForeignKey(d => new { d.EmpresaId, d.TipoUbicacionId })
                 .HasConstraintName("FK_Ubicacion_EmpresaTipo");

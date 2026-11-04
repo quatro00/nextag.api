@@ -27,7 +27,5 @@ public partial class TipoUbicacion
 
     public virtual Empresa Empresa { get; set; } = null!;
 
-    public virtual ICollection<Ubicacion> UbicacionTipoUbicacionNavigations { get; set; } = new List<Ubicacion>();
-
-    public virtual ICollection<Ubicacion> UbicacionTipoUbicacions { get; set; } = new List<Ubicacion>();
+    public virtual ICollection<Ubicacion> Ubicacions { get; set; } = new List<Ubicacion>();
 }
