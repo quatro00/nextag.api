@@ -25,5 +25,12 @@ namespace Nextag.Api.Helpers
         {
             return Guid.Parse(User.FindFirst("UsuarioId").Value);
         }
+        public static Guid GetEmpresaId(this HttpContext context)
+        {
+            if (context.Items.TryGetValue("EmpresaId", out var value) && value is Guid empresaId)
+                return empresaId;
+
+            throw new InvalidOperationException("No existe una empresa validada para esta solicitud.");
+        }
     }
 }

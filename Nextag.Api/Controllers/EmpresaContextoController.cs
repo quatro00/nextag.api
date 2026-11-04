@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Nextag.Api.Attributes;
 using Nextag.Api.Data;
 using Nextag.Api.Helpers;
 
@@ -42,6 +43,17 @@ namespace Nextag.Api.Controllers
                 .ToListAsync();
 
             return Ok(resultado);
+        }
+
+        [HttpGet("empresa-actual")]
+        [RequiereEmpresa]
+        public IActionResult GetEmpresaActual([FromHeader(Name = "X-Empresa-Id")] Guid empresaId)
+        {
+            return Ok(new
+            {
+                EmpresaId = HttpContext.GetEmpresaId(),
+                Message = "Contexto empresarial validado correctamente."
+            });
         }
     }
 }
