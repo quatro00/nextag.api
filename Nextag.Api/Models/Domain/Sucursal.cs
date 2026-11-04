@@ -42,4 +42,8 @@ public partial class Sucursal
     public Guid? UsuarioModificacion { get; set; }
 
     public virtual Empresa Empresa { get; set; } = null!;
+
+    public virtual ICollection<Ubicacion> UbicacionSucursalNavigations { get; set; } = new List<Ubicacion>();
+
+    public virtual ICollection<Ubicacion> UbicacionSucursals { get; set; } = new List<Ubicacion>();
 }

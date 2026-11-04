@@ -35,5 +35,9 @@ public partial class Empresa
 
     public virtual ICollection<Sucursal> Sucursals { get; set; } = new List<Sucursal>();
 
+    public virtual ICollection<TipoUbicacion> TipoUbicacions { get; set; } = new List<TipoUbicacion>();
+
+    public virtual ICollection<Ubicacion> Ubicacions { get; set; } = new List<Ubicacion>();
+
     public virtual ICollection<UsuarioEmpresa> UsuarioEmpresas { get; set; } = new List<UsuarioEmpresa>();
 }

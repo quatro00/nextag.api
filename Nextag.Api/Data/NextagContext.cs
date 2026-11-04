@@ -34,6 +34,10 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<Sucursal> Sucursals { get; set; }
 
+    public virtual DbSet<TipoUbicacion> TipoUbicacions { get; set; }
+
+    public virtual DbSet<Ubicacion> Ubicacions { get; set; }
+
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
     public virtual DbSet<UsuarioEmpresa> UsuarioEmpresas { get; set; }
@@ -145,6 +149,8 @@ public partial class NextagContext : DbContext
 
             entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_Sucursal_EmpresaId_Clave").IsUnique();
 
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Sucursal_Empresa_Id").IsUnique();
+
             entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
             entity.Property(e => e.Activo)
                 .IsRequired()
@@ -169,6 +175,95 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => d.EmpresaId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Sucursal_Empresa");
+        });
+
+        modelBuilder.Entity<TipoUbicacion>(entity =>
+        {
+            entity.ToTable("TipoUbicacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Activo, e.Nombre }, "IX_TipoUbicacion_Empresa_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_TipoUbicacion_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_TipoUbicacion_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(150);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.TipoUbicacions)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TipoUbicacion_Empresa");
+        });
+
+        modelBuilder.Entity<Ubicacion>(entity =>
+        {
+            entity.ToTable("Ubicacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.SucursalId, e.Activo, e.Nombre }, "IX_Ubicacion_Empresa_Sucursal_Activo_Nombre");
+
+            entity.HasIndex(e => e.UbicacionPadreId, "IX_Ubicacion_Padre");
+
+            entity.HasIndex(e => e.TipoUbicacionId, "IX_Ubicacion_TipoUbicacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.SucursalId, e.Id }, "UQ_Ubicacion_Empresa_Sucursal_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.SucursalId, e.Clave }, "UQ_Ubicacion_Sucursal_Clave").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Ubicacions)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Ubicacion_Empresa");
+
+            entity.HasOne(d => d.Sucursal).WithMany(p => p.UbicacionSucursals)
+                .HasForeignKey(d => d.SucursalId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Ubicacion_Sucursal");
+
+            entity.HasOne(d => d.TipoUbicacion).WithMany(p => p.UbicacionTipoUbicacions)
+                .HasForeignKey(d => d.TipoUbicacionId)
+                .HasConstraintName("FK_Ubicacion_TipoUbicacion");
+
+            entity.HasOne(d => d.UbicacionPadre).WithMany(p => p.InverseUbicacionPadre)
+                .HasForeignKey(d => d.UbicacionPadreId)
+                .HasConstraintName("FK_Ubicacion_Padre");
+
+            entity.HasOne(d => d.SucursalNavigation).WithMany(p => p.UbicacionSucursalNavigations)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Ubicacion_EmpresaSucursal");
+
+            entity.HasOne(d => d.TipoUbicacionNavigation).WithMany(p => p.UbicacionTipoUbicacionNavigations)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TipoUbicacionId })
+                .HasConstraintName("FK_Ubicacion_EmpresaTipo");
+
+            entity.HasOne(d => d.UbicacionNavigation).WithMany(p => p.InverseUbicacionNavigation)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.SucursalId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalId, d.UbicacionPadreId })
+                .HasConstraintName("FK_Ubicacion_PadreMismaSucursal");
         });
 
         modelBuilder.Entity<Usuario>(entity =>
