@@ -10,6 +10,8 @@ using Nextag.Api.Services.Administrador.Implementation;
 using Nextag.Api.Services.Administrador.Interface;
 using Nextag.Api.Services.CategoriasActivo.Implementation;
 using Nextag.Api.Services.CategoriasActivo.Interface;
+using Nextag.Api.Services.EstadosActivo.Implementation;
+using Nextag.Api.Services.EstadosActivo.Interface;
 using Nextag.Api.Services.Marcas.Implementation;
 using Nextag.Api.Services.Marcas.Interface;
 using Nextag.Api.Services.ModelosActivo.Implementation;
@@ -85,6 +87,7 @@ builder.Services.AddScoped<IUsuarioAdministradorService, UsuarioAdministradorSer
 builder.Services.AddScoped<IEmpresaAdministradorService, EmpresaAdministradorService>();
 builder.Services.AddScoped<IMarcaService, MarcaService>();
 builder.Services.AddScoped<IModeloActivoService, ModeloActivoService>();
+builder.Services.AddScoped<IEstadoActivoService, EstadoActivoService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
