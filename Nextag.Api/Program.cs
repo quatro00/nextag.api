@@ -77,6 +77,8 @@ builder.Services.AddScoped<ISucursalService, SucursalService>();
 builder.Services.AddScoped<ITipoUbicacionService, TipoUbicacionService>();
 builder.Services.AddScoped<IUbicacionService, UbicacionService>();
 builder.Services.AddScoped<ICategoriaActivoService, CategoriaActivoService>();
+builder.Services.AddScoped<IUsuarioAdministradorService, UsuarioAdministradorService>();
+builder.Services.AddScoped<IEmpresaAdministradorService, EmpresaAdministradorService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()

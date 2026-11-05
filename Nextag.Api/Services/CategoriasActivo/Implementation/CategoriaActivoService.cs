@@ -345,6 +345,10 @@ namespace Nextag.Api.Services.CategoriasActivo.Implementation
 
             if (!activo)
             {
+                // ==================================
+                // VALIDAR SUBCATEGORIAS ACTIVAS
+                // ==================================
+
                 var tieneDescendientesActivos =
                     await TieneDescendientesActivosAsync(
                         empresaId,
@@ -356,6 +360,26 @@ namespace Nextag.Api.Services.CategoriasActivo.Implementation
                     return ServiceResult<bool>
                         .Fail(
                             "No puedes desactivar una categoría que tiene subcategorías activas."
+                        );
+                }
+
+                // ==================================
+                // VALIDAR MODELOS ACTIVOS
+                // ==================================
+
+                var tieneModelosActivos =
+                    await context.ModeloActivos
+                        .AnyAsync(x =>
+                            x.EmpresaId == empresaId &&
+                            x.CategoriaActivoId == id &&
+                            x.Activo == true,
+                            ct);
+
+                if (tieneModelosActivos)
+                {
+                    return ServiceResult<bool>
+                        .Fail(
+                            "No puedes desactivar una categoría que tiene modelos de activos activos."
                         );
                 }
             }
