@@ -35,6 +35,10 @@ public partial class Empresa
 
     public virtual ICollection<CategoriaActivo> CategoriaActivos { get; set; } = new List<CategoriaActivo>();
 
+    public virtual ICollection<Marca> Marcas { get; set; } = new List<Marca>();
+
+    public virtual ICollection<ModeloActivo> ModeloActivos { get; set; } = new List<ModeloActivo>();
+
     public virtual ICollection<Sucursal> Sucursals { get; set; } = new List<Sucursal>();
 
     public virtual ICollection<TipoUbicacion> TipoUbicacions { get; set; } = new List<TipoUbicacion>();

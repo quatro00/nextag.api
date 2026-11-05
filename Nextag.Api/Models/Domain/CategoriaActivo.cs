@@ -32,4 +32,6 @@ public partial class CategoriaActivo
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual ICollection<CategoriaActivo> InverseCategoriaActivoNavigation { get; set; } = new List<CategoriaActivo>();
+
+    public virtual ICollection<ModeloActivo> ModeloActivos { get; set; } = new List<ModeloActivo>();
 }

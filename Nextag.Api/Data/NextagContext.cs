@@ -7,10 +7,6 @@ namespace Nextag.Api.Data;
 
 public partial class NextagContext : DbContext
 {
-    public NextagContext()
-    {
-    }
-
     public NextagContext(DbContextOptions<NextagContext> options)
         : base(options)
     {
@@ -33,6 +29,10 @@ public partial class NextagContext : DbContext
     public virtual DbSet<CategoriaActivo> CategoriaActivos { get; set; }
 
     public virtual DbSet<Empresa> Empresas { get; set; }
+
+    public virtual DbSet<Marca> Marcas { get; set; }
+
+    public virtual DbSet<ModeloActivo> ModeloActivos { get; set; }
 
     public virtual DbSet<Sucursal> Sucursals { get; set; }
 
@@ -176,6 +176,76 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Rfc).HasMaxLength(20);
             entity.Property(e => e.SitioWeb).HasMaxLength(250);
             entity.Property(e => e.Telefono).HasMaxLength(30);
+        });
+
+        modelBuilder.Entity<Marca>(entity =>
+        {
+            entity.ToTable("Marca");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Activo, e.Nombre }, "IX_Marca_Empresa_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_Marca_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Marca_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(150);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Marcas)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Marca_Empresa");
+        });
+
+        modelBuilder.Entity<ModeloActivo>(entity =>
+        {
+            entity.ToTable("ModeloActivo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.CategoriaActivoId, e.Activo, e.Nombre }, "IX_ModeloActivo_Empresa_Categoria_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.MarcaId, e.Activo, e.Nombre }, "IX_ModeloActivo_Empresa_Marca_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_ModeloActivo_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.MarcaId, e.Clave }, "UQ_ModeloActivo_Empresa_Marca_Clave").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.ModeloActivos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ModeloActivo_Empresa");
+
+            entity.HasOne(d => d.CategoriaActivo).WithMany(p => p.ModeloActivos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.CategoriaActivoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ModeloActivo_EmpresaCategoria");
+
+            entity.HasOne(d => d.Marca).WithMany(p => p.ModeloActivos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.MarcaId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ModeloActivo_EmpresaMarca");
         });
 
         modelBuilder.Entity<Sucursal>(entity =>
