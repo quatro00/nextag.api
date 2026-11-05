@@ -33,6 +33,8 @@ public partial class Empresa
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public virtual ICollection<CategoriaActivo> CategoriaActivos { get; set; } = new List<CategoriaActivo>();
+
     public virtual ICollection<Sucursal> Sucursals { get; set; } = new List<Sucursal>();
 
     public virtual ICollection<TipoUbicacion> TipoUbicacions { get; set; } = new List<TipoUbicacion>();

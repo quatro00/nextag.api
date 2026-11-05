@@ -30,6 +30,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<AspNetUserToken> AspNetUserTokens { get; set; }
 
+    public virtual DbSet<CategoriaActivo> CategoriaActivos { get; set; }
+
     public virtual DbSet<Empresa> Empresas { get; set; }
 
     public virtual DbSet<Sucursal> Sucursals { get; set; }
@@ -113,6 +115,41 @@ public partial class NextagContext : DbContext
             entity.HasKey(e => new { e.UserId, e.LoginProvider, e.Name });
 
             entity.HasOne(d => d.User).WithMany(p => p.AspNetUserTokens).HasForeignKey(d => d.UserId);
+        });
+
+        modelBuilder.Entity<CategoriaActivo>(entity =>
+        {
+            entity.ToTable("CategoriaActivo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Activo, e.Nombre }, "IX_CategoriaActivo_Empresa_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.CategoriaPadreId, e.Activo, e.Nombre }, "IX_CategoriaActivo_Empresa_Padre_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_CategoriaActivo_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_CategoriaActivo_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.CategoriaActivos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_CategoriaActivo_Empresa");
+
+            entity.HasOne(d => d.CategoriaActivoNavigation).WithMany(p => p.InverseCategoriaActivoNavigation)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.CategoriaPadreId })
+                .HasConstraintName("FK_CategoriaActivo_PadreMismaEmpresa");
         });
 
         modelBuilder.Entity<Empresa>(entity =>
