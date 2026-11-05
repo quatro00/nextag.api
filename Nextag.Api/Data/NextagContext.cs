@@ -30,6 +30,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<Empresa> Empresas { get; set; }
 
+    public virtual DbSet<EstadoActivo> EstadoActivos { get; set; }
+
     public virtual DbSet<Marca> Marcas { get; set; }
 
     public virtual DbSet<ModeloActivo> ModeloActivos { get; set; }
@@ -176,6 +178,20 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Rfc).HasMaxLength(20);
             entity.Property(e => e.SitioWeb).HasMaxLength(250);
             entity.Property(e => e.Telefono).HasMaxLength(30);
+        });
+
+        modelBuilder.Entity<EstadoActivo>(entity =>
+        {
+            entity.ToTable("EstadoActivo");
+
+            entity.HasIndex(e => e.Clave, "UQ_EstadoActivo_Clave").IsUnique();
+
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(300);
+            entity.Property(e => e.Nombre).HasMaxLength(100);
         });
 
         modelBuilder.Entity<Marca>(entity =>
