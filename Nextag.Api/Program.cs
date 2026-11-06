@@ -6,6 +6,8 @@ using Microsoft.OpenApi.Models;
 using Nextag.Api.Data;
 using Nextag.Api.Repositories.Implementation;
 using Nextag.Api.Repositories.Interface;
+using Nextag.Api.Services.Activos.Implementation;
+using Nextag.Api.Services.Activos.Interface;
 using Nextag.Api.Services.Administrador.Implementation;
 using Nextag.Api.Services.Administrador.Interface;
 using Nextag.Api.Services.CategoriasActivo.Implementation;
@@ -97,6 +99,7 @@ builder.Services.AddScoped<IEstadoActivoService, EstadoActivoService>();
 builder.Services.AddScoped<IProveedorService, ProveedorService>();
 builder.Services.AddScoped<IProveedorContactoService, ProveedorContactoService>();
 builder.Services.AddScoped<ITipoProveedorService, TipoProveedorService>();
+builder.Services.AddScoped<IActivoService, ActivoService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
