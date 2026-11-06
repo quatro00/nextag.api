@@ -16,8 +16,14 @@ using Nextag.Api.Services.Marcas.Implementation;
 using Nextag.Api.Services.Marcas.Interface;
 using Nextag.Api.Services.ModelosActivo.Implementation;
 using Nextag.Api.Services.ModelosActivo.Interface;
+using Nextag.Api.Services.ProveedorContactos.Implementation;
+using Nextag.Api.Services.ProveedorContactos.Interface;
+using Nextag.Api.Services.Proveedores.Implementation;
+using Nextag.Api.Services.Proveedores.Interface;
 using Nextag.Api.Services.Sucursales.Implementation;
 using Nextag.Api.Services.Sucursales.Interface;
+using Nextag.Api.Services.TiposProveedor.Implementation;
+using Nextag.Api.Services.TiposProveedor.Interface;
 using Nextag.Api.Services.TiposUbicacion.Implementation;
 using Nextag.Api.Services.TiposUbicacion.Interface;
 using Nextag.Api.Services.Ubicaciones.Implementation;
@@ -88,6 +94,9 @@ builder.Services.AddScoped<IEmpresaAdministradorService, EmpresaAdministradorSer
 builder.Services.AddScoped<IMarcaService, MarcaService>();
 builder.Services.AddScoped<IModeloActivoService, ModeloActivoService>();
 builder.Services.AddScoped<IEstadoActivoService, EstadoActivoService>();
+builder.Services.AddScoped<IProveedorService, ProveedorService>();
+builder.Services.AddScoped<IProveedorContactoService, ProveedorContactoService>();
+builder.Services.AddScoped<ITipoProveedorService, TipoProveedorService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
