@@ -36,7 +36,15 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<ModeloActivo> ModeloActivos { get; set; }
 
+    public virtual DbSet<Proveedor> Proveedors { get; set; }
+
+    public virtual DbSet<ProveedorContacto> ProveedorContactos { get; set; }
+
+    public virtual DbSet<ProveedorTipo> ProveedorTipos { get; set; }
+
     public virtual DbSet<Sucursal> Sucursals { get; set; }
+
+    public virtual DbSet<TipoProveedor> TipoProveedors { get; set; }
 
     public virtual DbSet<TipoUbicacion> TipoUbicacions { get; set; }
 
@@ -264,6 +272,101 @@ public partial class NextagContext : DbContext
                 .HasConstraintName("FK_ModeloActivo_EmpresaMarca");
         });
 
+        modelBuilder.Entity<Proveedor>(entity =>
+        {
+            entity.ToTable("Proveedor");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Activo, e.Nombre }, "IX_Proveedor_Empresa_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_Proveedor_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Proveedor_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.CodigoPostal).HasMaxLength(15);
+            entity.Property(e => e.Colonia).HasMaxLength(150);
+            entity.Property(e => e.Correo).HasMaxLength(256);
+            entity.Property(e => e.Direccion).HasMaxLength(300);
+            entity.Property(e => e.Estado).HasMaxLength(150);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Municipio).HasMaxLength(150);
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.Observaciones).HasMaxLength(1000);
+            entity.Property(e => e.Pais).HasMaxLength(100);
+            entity.Property(e => e.RazonSocial).HasMaxLength(250);
+            entity.Property(e => e.Rfc).HasMaxLength(13);
+            entity.Property(e => e.SitioWeb).HasMaxLength(300);
+            entity.Property(e => e.Telefono).HasMaxLength(30);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Proveedors)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Proveedor_Empresa");
+        });
+
+        modelBuilder.Entity<ProveedorContacto>(entity =>
+        {
+            entity.ToTable("ProveedorContacto");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId, e.Activo, e.Nombre }, "IX_ProveedorContacto_Proveedor");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId }, "UQ_ProveedorContacto_Principal")
+                .IsUnique()
+                .HasFilter("([EsPrincipal]=(1) AND [Activo]=(1))");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Cargo).HasMaxLength(150);
+            entity.Property(e => e.Celular).HasMaxLength(30);
+            entity.Property(e => e.Correo).HasMaxLength(256);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.Telefono).HasMaxLength(30);
+
+            entity.HasOne(d => d.Proveedor).WithOne(p => p.ProveedorContacto)
+                .HasPrincipalKey<Proveedor>(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey<ProveedorContacto>(d => new { d.EmpresaId, d.ProveedorId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ProveedorContacto_Proveedor");
+        });
+
+        modelBuilder.Entity<ProveedorTipo>(entity =>
+        {
+            entity.ToTable("ProveedorTipo");
+
+            entity.HasIndex(e => new { e.TipoProveedorId, e.EmpresaId }, "IX_ProveedorTipo_TipoProveedor");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId, e.TipoProveedorId }, "UQ_ProveedorTipo_Proveedor_Tipo").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+
+            entity.HasOne(d => d.TipoProveedor).WithMany(p => p.ProveedorTipos)
+                .HasForeignKey(d => d.TipoProveedorId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ProveedorTipo_TipoProveedor");
+
+            entity.HasOne(d => d.Proveedor).WithMany(p => p.ProveedorTipos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ProveedorId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ProveedorTipo_Proveedor");
+        });
+
         modelBuilder.Entity<Sucursal>(entity =>
         {
             entity.ToTable("Sucursal");
@@ -298,6 +401,20 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => d.EmpresaId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Sucursal_Empresa");
+        });
+
+        modelBuilder.Entity<TipoProveedor>(entity =>
+        {
+            entity.ToTable("TipoProveedor");
+
+            entity.HasIndex(e => e.Clave, "UQ_TipoProveedor_Clave").IsUnique();
+
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(300);
+            entity.Property(e => e.Nombre).HasMaxLength(150);
         });
 
         modelBuilder.Entity<TipoUbicacion>(entity =>
