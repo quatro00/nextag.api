@@ -6,6 +6,8 @@ using Microsoft.OpenApi.Models;
 using Nextag.Api.Data;
 using Nextag.Api.Repositories.Implementation;
 using Nextag.Api.Repositories.Interface;
+using Nextag.Api.Services.ActivoEtiquetas.Implementation;
+using Nextag.Api.Services.ActivoEtiquetas.Interface;
 using Nextag.Api.Services.Activos.Implementation;
 using Nextag.Api.Services.Activos.Interface;
 using Nextag.Api.Services.Administrador.Implementation;
@@ -14,6 +16,8 @@ using Nextag.Api.Services.CategoriasActivo.Implementation;
 using Nextag.Api.Services.CategoriasActivo.Interface;
 using Nextag.Api.Services.EstadosActivo.Implementation;
 using Nextag.Api.Services.EstadosActivo.Interface;
+using Nextag.Api.Services.Etiquetas.Implementation;
+using Nextag.Api.Services.Etiquetas.Interface;
 using Nextag.Api.Services.Marcas.Implementation;
 using Nextag.Api.Services.Marcas.Interface;
 using Nextag.Api.Services.ModelosActivo.Implementation;
@@ -100,6 +104,8 @@ builder.Services.AddScoped<IProveedorService, ProveedorService>();
 builder.Services.AddScoped<IProveedorContactoService, ProveedorContactoService>();
 builder.Services.AddScoped<ITipoProveedorService, TipoProveedorService>();
 builder.Services.AddScoped<IActivoService, ActivoService>();
+builder.Services.AddScoped<IEtiquetaService, EtiquetaService>();
+builder.Services.AddScoped<IActivoEtiquetaService, ActivoEtiquetaService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
