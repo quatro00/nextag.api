@@ -317,7 +317,7 @@ public partial class NextagContext : DbContext
 
             entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId, e.Activo, e.Nombre }, "IX_ProveedorContacto_Proveedor");
 
-            entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId }, "UQ_ProveedorContacto_Principal")
+            entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId, e.EsPrincipal }, "UQ_ProveedorContacto_Principal")
                 .IsUnique()
                 .HasFilter("([EsPrincipal]=(1) AND [Activo]=(1))");
 
@@ -335,9 +335,9 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Nombre).HasMaxLength(200);
             entity.Property(e => e.Telefono).HasMaxLength(30);
 
-            entity.HasOne(d => d.Proveedor).WithOne(p => p.ProveedorContacto)
-                .HasPrincipalKey<Proveedor>(p => new { p.EmpresaId, p.Id })
-                .HasForeignKey<ProveedorContacto>(d => new { d.EmpresaId, d.ProveedorId })
+            entity.HasOne(d => d.Proveedor).WithMany(p => p.ProveedorContactos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ProveedorId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ProveedorContacto_Proveedor");
         });
