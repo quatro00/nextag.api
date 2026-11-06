@@ -31,6 +31,8 @@ public partial class Ubicacion
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public virtual ICollection<Activo> Activos { get; set; } = new List<Activo>();
+
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual ICollection<Ubicacion> InverseUbicacionNavigation { get; set; } = new List<Ubicacion>();

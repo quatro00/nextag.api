@@ -12,6 +12,10 @@ public partial class NextagContext : DbContext
     {
     }
 
+    public virtual DbSet<Activo> Activos { get; set; }
+
+    public virtual DbSet<ActivoEtiquetum> ActivoEtiqueta { get; set; }
+
     public virtual DbSet<AspNetRole> AspNetRoles { get; set; }
 
     public virtual DbSet<AspNetRoleClaim> AspNetRoleClaims { get; set; }
@@ -31,6 +35,8 @@ public partial class NextagContext : DbContext
     public virtual DbSet<Empresa> Empresas { get; set; }
 
     public virtual DbSet<EstadoActivo> EstadoActivos { get; set; }
+
+    public virtual DbSet<Etiquetum> Etiqueta { get; set; }
 
     public virtual DbSet<Marca> Marcas { get; set; }
 
@@ -56,6 +62,130 @@ public partial class NextagContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Activo>(entity =>
+        {
+            entity.ToTable("Activo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.CategoriaActivoId }, "IX_Activo_Empresa_Categoria");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EstadoActivoId }, "IX_Activo_Empresa_Estado");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.NumeroSerie }, "IX_Activo_Empresa_NumeroSerie");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId }, "IX_Activo_Empresa_Proveedor");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.SucursalId, e.UbicacionId }, "IX_Activo_Empresa_Ubicacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Codigo }, "UQ_Activo_Empresa_Codigo").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Activo_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Codigo).HasMaxLength(50);
+            entity.Property(e => e.CostoAdquisicion).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.EstadoActivoId).HasDefaultValueSql("((1))");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaAdquisicion).HasColumnType("date");
+            entity.Property(e => e.FechaAlta)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaBaja).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Moneda)
+                .HasMaxLength(3)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('MXN')")
+                .IsFixedLength();
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.NumeroInventario).HasMaxLength(100);
+            entity.Property(e => e.NumeroSerie).HasMaxLength(150);
+            entity.Property(e => e.Observaciones).HasMaxLength(1000);
+            entity.Property(e => e.PropietarioNombre).HasMaxLength(200);
+            entity.Property(e => e.TipoPropiedad)
+                .HasMaxLength(20)
+                .HasDefaultValueSql("('PROPIO')");
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Activos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Activo_Empresa");
+
+            entity.HasOne(d => d.EstadoActivo).WithMany(p => p.Activos)
+                .HasForeignKey(d => d.EstadoActivoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Activo_EstadoActivo");
+
+            entity.HasOne(d => d.CategoriaActivo).WithMany(p => p.Activos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.CategoriaActivoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Activo_Categoria");
+
+            entity.HasOne(d => d.Marca).WithMany(p => p.Activos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.MarcaId })
+                .HasConstraintName("FK_Activo_Marca");
+
+            entity.HasOne(d => d.Proveedor).WithMany(p => p.ActivoProveedors)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.PropietarioProveedorId })
+                .HasConstraintName("FK_Activo_PropietarioProveedor");
+
+            entity.HasOne(d => d.ProveedorNavigation).WithMany(p => p.ActivoProveedorNavigations)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ProveedorId })
+                .HasConstraintName("FK_Activo_Proveedor");
+
+            entity.HasOne(d => d.Sucursal).WithMany(p => p.Activos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Activo_Sucursal");
+
+            entity.HasOne(d => d.Ubicacion).WithMany(p => p.Activos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.SucursalId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalId, d.UbicacionId })
+                .HasConstraintName("FK_Activo_Ubicacion");
+
+            entity.HasOne(d => d.ModeloActivo).WithMany(p => p.Activos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.CategoriaActivoId, p.MarcaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.CategoriaActivoId, d.MarcaId, d.ModeloActivoId })
+                .HasConstraintName("FK_Activo_Modelo");
+        });
+
+        modelBuilder.Entity<ActivoEtiquetum>(entity =>
+        {
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaVinculacion }, "IX_ActivoEtiqueta_Historial").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EtiquetaId }, "UQ_ActivoEtiqueta_Etiqueta").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaDesvinculacion }, "UQ_ActivoEtiqueta_Vigente")
+                .IsUnique()
+                .HasFilter("([FechaDesvinculacion] IS NULL)");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaDesvinculacion).HasPrecision(3);
+            entity.Property(e => e.FechaVinculacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.MotivoDesvinculacion).HasMaxLength(300);
+
+            entity.HasOne(d => d.Activo).WithMany(p => p.ActivoEtiqueta)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoEtiqueta_Activo");
+
+            entity.HasOne(d => d.E).WithOne(p => p.ActivoEtiquetum)
+                .HasPrincipalKey<Etiquetum>(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey<ActivoEtiquetum>(d => new { d.EmpresaId, d.EtiquetaId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoEtiqueta_Etiqueta");
+        });
+
         modelBuilder.Entity<AspNetRole>(entity =>
         {
             entity.Property(e => e.Name).HasMaxLength(256);
@@ -202,6 +332,41 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Nombre).HasMaxLength(100);
         });
 
+        modelBuilder.Entity<Etiquetum>(entity =>
+        {
+            entity.HasIndex(e => new { e.EmpresaId, e.Anulada }, "IX_Etiqueta_Empresa_Anulada");
+
+            entity.HasIndex(e => e.UidNfc, "IX_Etiqueta_UidNfc").HasFilter("([UidNfc] IS NOT NULL)");
+
+            entity.HasIndex(e => e.Codigo, "UQ_Etiqueta_Codigo").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Etiqueta_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => e.TokenPublico, "UQ_Etiqueta_TokenPublico").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Codigo).HasMaxLength(50);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaAnulacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.MotivoAnulacion).HasMaxLength(300);
+            entity.Property(e => e.TieneNfc)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.TieneQr)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.TokenPublico).HasMaxLength(80);
+            entity.Property(e => e.UidNfc).HasMaxLength(100);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Etiqueta)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Etiqueta_Empresa");
+        });
+
         modelBuilder.Entity<Marca>(entity =>
         {
             entity.ToTable("Marca");
@@ -237,6 +402,8 @@ public partial class NextagContext : DbContext
             entity.HasIndex(e => new { e.EmpresaId, e.CategoriaActivoId, e.Activo, e.Nombre }, "IX_ModeloActivo_Empresa_Categoria_Activo_Nombre");
 
             entity.HasIndex(e => new { e.EmpresaId, e.MarcaId, e.Activo, e.Nombre }, "IX_ModeloActivo_Empresa_Marca_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.CategoriaActivoId, e.MarcaId, e.Id }, "UQ_ModeloActivo_Empresa_Categoria_Marca_Id").IsUnique();
 
             entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_ModeloActivo_Empresa_Id").IsUnique();
 

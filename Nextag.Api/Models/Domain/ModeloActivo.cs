@@ -29,6 +29,8 @@ public partial class ModeloActivo
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public virtual ICollection<Activo> Activos { get; set; } = new List<Activo>();
+
     public virtual CategoriaActivo CategoriaActivo { get; set; } = null!;
 
     public virtual Empresa Empresa { get; set; } = null!;

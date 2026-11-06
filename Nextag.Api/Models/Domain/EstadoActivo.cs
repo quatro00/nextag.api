@@ -14,4 +14,6 @@ public partial class EstadoActivo
     public string? Descripcion { get; set; }
 
     public bool? Activo { get; set; }
+
+    public virtual ICollection<Activo> Activos { get; set; } = new List<Activo>();
 }
