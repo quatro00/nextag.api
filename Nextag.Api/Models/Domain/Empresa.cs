@@ -39,6 +39,8 @@ public partial class Empresa
 
     public virtual ICollection<Etiquetum> Etiqueta { get; set; } = new List<Etiquetum>();
 
+    public virtual EtiquetaConfiguracion? EtiquetaConfiguracion { get; set; }
+
     public virtual ICollection<Marca> Marcas { get; set; } = new List<Marca>();
 
     public virtual ICollection<ModeloActivo> ModeloActivos { get; set; } = new List<ModeloActivo>();

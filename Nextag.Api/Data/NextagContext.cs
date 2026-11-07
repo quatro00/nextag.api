@@ -36,6 +36,10 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<EstadoActivo> EstadoActivos { get; set; }
 
+    public virtual DbSet<EtiquetaConfiguracion> EtiquetaConfiguracions { get; set; }
+
+    public virtual DbSet<EtiquetaLectura> EtiquetaLecturas { get; set; }
+
     public virtual DbSet<Etiquetum> Etiqueta { get; set; }
 
     public virtual DbSet<Marca> Marcas { get; set; }
@@ -158,9 +162,13 @@ public partial class NextagContext : DbContext
 
         modelBuilder.Entity<ActivoEtiquetum>(entity =>
         {
+            entity.HasIndex(e => new { e.EmpresaId, e.EtiquetaId, e.FechaVinculacion }, "IX_ActivoEtiqueta_Etiqueta_Historial").IsDescending(false, false, true);
+
             entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaVinculacion }, "IX_ActivoEtiqueta_Historial").IsDescending(false, false, true);
 
-            entity.HasIndex(e => new { e.EmpresaId, e.EtiquetaId }, "UQ_ActivoEtiqueta_Etiqueta").IsUnique();
+            entity.HasIndex(e => new { e.EmpresaId, e.EtiquetaId }, "UQ_ActivoEtiqueta_Etiqueta_Vigente")
+                .IsUnique()
+                .HasFilter("([FechaDesvinculacion] IS NULL)");
 
             entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaDesvinculacion }, "UQ_ActivoEtiqueta_Vigente")
                 .IsUnique()
@@ -332,6 +340,86 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Nombre).HasMaxLength(100);
         });
 
+        modelBuilder.Entity<EtiquetaConfiguracion>(entity =>
+        {
+            entity.ToTable("EtiquetaConfiguracion");
+
+            entity.HasIndex(e => e.EmpresaId, "UQ_EtiquetaConfiguracion_Empresa").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.MostrarCategoria)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.MostrarCodigoActivo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.MostrarDatosEmpresa)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.MostrarEstadoActivo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.MostrarMarcaModelo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.MostrarNombreActivo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.MostrarNumeroInventario)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+
+            entity.HasOne(d => d.Empresa).WithOne(p => p.EtiquetaConfiguracion)
+                .HasForeignKey<EtiquetaConfiguracion>(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_EtiquetaConfiguracion_Empresa");
+        });
+
+        modelBuilder.Entity<EtiquetaLectura>(entity =>
+        {
+            entity.ToTable("EtiquetaLectura");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaLectura }, "IX_EtiquetaLectura_Activo_Fecha").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.FechaLectura }, "IX_EtiquetaLectura_Empresa_Fecha").IsDescending(false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EtiquetaId, e.FechaLectura }, "IX_EtiquetaLectura_Etiqueta_Fecha").IsDescending(false, false, true);
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaLectura)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Ip)
+                .HasMaxLength(45)
+                .IsUnicode(false);
+            entity.Property(e => e.Resultado)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.TipoLectura)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('DESCONOCIDO')");
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+
+            entity.HasOne(d => d.Activo).WithMany(p => p.EtiquetaLecturas)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId })
+                .HasConstraintName("FK_EtiquetaLectura_Activo");
+
+            entity.HasOne(d => d.E).WithMany(p => p.EtiquetaLecturas)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.EtiquetaId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_EtiquetaLectura_Etiqueta");
+        });
+
         modelBuilder.Entity<Etiquetum>(entity =>
         {
             entity.HasIndex(e => new { e.EmpresaId, e.Anulada }, "IX_Etiqueta_Empresa_Anulada");
@@ -341,6 +429,10 @@ public partial class NextagContext : DbContext
             entity.HasIndex(e => e.Codigo, "UQ_Etiqueta_Codigo").IsUnique();
 
             entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Etiqueta_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.UidNfc }, "UQ_Etiqueta_Empresa_UidNfc")
+                .IsUnique()
+                .HasFilter("([UidNfc] IS NOT NULL)");
 
             entity.HasIndex(e => e.TokenPublico, "UQ_Etiqueta_TokenPublico").IsUnique();
 
@@ -352,6 +444,9 @@ public partial class NextagContext : DbContext
                 .HasPrecision(3)
                 .HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.MotivoAnulacion).HasMaxLength(300);
+            entity.Property(e => e.PublicaHabilitada)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
             entity.Property(e => e.TieneNfc)
                 .IsRequired()
                 .HasDefaultValueSql("((1))");

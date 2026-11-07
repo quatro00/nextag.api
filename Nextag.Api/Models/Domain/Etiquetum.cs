@@ -39,7 +39,11 @@ public partial class Etiquetum
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public bool? PublicaHabilitada { get; set; }
+
     public virtual ActivoEtiquetum? ActivoEtiquetum { get; set; }
 
     public virtual Empresa Empresa { get; set; } = null!;
+
+    public virtual ICollection<EtiquetaLectura> EtiquetaLecturas { get; set; } = new List<EtiquetaLectura>();
 }

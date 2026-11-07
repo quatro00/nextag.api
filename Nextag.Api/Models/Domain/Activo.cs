@@ -67,6 +67,8 @@ public partial class Activo
 
     public virtual EstadoActivo EstadoActivo { get; set; } = null!;
 
+    public virtual ICollection<EtiquetaLectura> EtiquetaLecturas { get; set; } = new List<EtiquetaLectura>();
+
     public virtual Marca? Marca { get; set; }
 
     public virtual ModeloActivo? ModeloActivo { get; set; }
