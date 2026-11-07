@@ -25,30 +25,48 @@ public class EtiquetaService : IEtiquetaService
 
     // La proyección usa las propiedades del scaffold: Etiquetum y ActivoEtiquetum.
     // Sin carga de entidades fuera del ámbito de la empresa autenticada.
-    private static readonly Expression<Func<Etiquetum, EtiquetaDto>> Proyeccion = e => new EtiquetaDto
+    private static readonly Expression<Func<Etiquetum, EtiquetaDto>> Proyeccion =
+    e => new EtiquetaDto
     {
         Id = e.Id,
         EmpresaId = e.EmpresaId,
         Codigo = e.Codigo,
         TokenPublico = e.TokenPublico,
         UidNfc = e.UidNfc,
+
         TieneNfc = e.TieneNfc == true,
         TieneQr = e.TieneQr == true,
+
         EsAntimetal = e.EsAntimetal,
         NfcBloqueado = e.NfcBloqueado,
+
+        PublicaHabilitada = e.PublicaHabilitada == true,
         Anulada = e.Anulada,
         FechaAnulacion = e.FechaAnulacion,
         MotivoAnulacion = e.MotivoAnulacion,
-        Estatus = e.Anulada ||
-                  (e.ActivoEtiquetum != null && e.ActivoEtiquetum.FechaDesvinculacion != null)
+
+        // Estatus considerando la vinculación vigente
+        Estatus = e.Anulada
             ? "RETIRADA"
-            : e.ActivoEtiquetum != null ? "VINCULADA" : "DISPONIBLE",
-        ActivoId = e.ActivoEtiquetum != null &&
-                   e.ActivoEtiquetum.FechaDesvinculacion == null
-            ? e.ActivoEtiquetum.ActivoId : null,
-        ActivoCodigo = e.ActivoEtiquetum != null &&
-                       e.ActivoEtiquetum.FechaDesvinculacion == null
-            ? e.ActivoEtiquetum.Activo.Codigo : null,
+            : e.ActivoEtiqueta.Any(x =>
+                x.FechaDesvinculacion == null)
+                ? "VINCULADA"
+                : e.ActivoEtiqueta.Any()
+                    ? "RETIRADA"
+                    : "DISPONIBLE",
+
+        // Activo actualmente vinculado
+        ActivoId = e.ActivoEtiqueta
+            .Where(x => x.FechaDesvinculacion == null)
+            .Select(x => (Guid?)x.ActivoId)
+            .FirstOrDefault(),
+
+        // Código del activo actualmente vinculado
+        ActivoCodigo = e.ActivoEtiqueta
+            .Where(x => x.FechaDesvinculacion == null)
+            .Select(x => x.Activo.Codigo)
+            .FirstOrDefault(),
+
         FechaCreacion = e.FechaCreacion,
         UsuarioCreacion = e.UsuarioCreacion,
         FechaActualizacion = e.FechaActualizacion,
@@ -73,15 +91,33 @@ public class EtiquetaService : IEtiquetaService
         switch (filtros.Estatus?.Trim().ToUpperInvariant())
         {
             case "DISPONIBLE":
-                query = query.Where(e => !e.Anulada && e.ActivoEtiquetum == null);
+
+                query = query.Where(e =>
+                    !e.Anulada &&
+                    !e.ActivoEtiqueta.Any());
+
                 break;
+
             case "VINCULADA":
-                query = query.Where(e => !e.Anulada && e.ActivoEtiquetum != null &&
-                    e.ActivoEtiquetum.FechaDesvinculacion == null);
+
+                query = query.Where(e =>
+                    !e.Anulada &&
+                    e.ActivoEtiqueta.Any(x =>
+                        x.FechaDesvinculacion == null));
+
                 break;
+
             case "RETIRADA":
-                query = query.Where(e => e.Anulada ||
-                    (e.ActivoEtiquetum != null && e.ActivoEtiquetum.FechaDesvinculacion != null));
+
+                query = query.Where(e =>
+                    e.Anulada ||
+                    (
+                        !e.ActivoEtiqueta.Any(x =>
+                            x.FechaDesvinculacion == null)
+                        &&
+                        e.ActivoEtiqueta.Any()
+                    ));
+
                 break;
         }
 
@@ -142,6 +178,7 @@ public class EtiquetaService : IEtiquetaService
                 EsAntimetal = dto.EsAntimetal,
                 NfcBloqueado = false,
                 Anulada = false,
+                PublicaHabilitada = true,
                 FechaCreacion = ahora,
                 UsuarioCreacion = usuarioId
             });

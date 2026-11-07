@@ -41,7 +41,7 @@ public partial class Etiquetum
 
     public bool? PublicaHabilitada { get; set; }
 
-    public virtual ActivoEtiquetum? ActivoEtiquetum { get; set; }
+    public virtual ICollection<ActivoEtiquetum> ActivoEtiqueta { get; set; } = new List<ActivoEtiquetum>();
 
     public virtual Empresa Empresa { get; set; } = null!;
 

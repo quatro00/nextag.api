@@ -23,4 +23,5 @@ public class EtiquetaDto
     public Guid UsuarioCreacion { get; set; }
     public DateTime? FechaActualizacion { get; set; }
     public Guid? UsuarioModificacion { get; set; }
+    public bool PublicaHabilitada { get; set; }
 }

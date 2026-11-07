@@ -166,9 +166,7 @@ public partial class NextagContext : DbContext
 
             entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaVinculacion }, "IX_ActivoEtiqueta_Historial").IsDescending(false, false, true);
 
-            entity.HasIndex(e => new { e.EmpresaId, e.EtiquetaId }, "UQ_ActivoEtiqueta_Etiqueta_Vigente")
-                .IsUnique()
-                .HasFilter("([FechaDesvinculacion] IS NULL)");
+            entity.HasIndex(e => new { e.EmpresaId, e.EtiquetaId, e.FechaDesvinculacion }, "UQ_ActivoEtiqueta_Etiqueta").IsUnique();
 
             entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaDesvinculacion }, "UQ_ActivoEtiqueta_Vigente")
                 .IsUnique()
@@ -187,9 +185,9 @@ public partial class NextagContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ActivoEtiqueta_Activo");
 
-            entity.HasOne(d => d.E).WithOne(p => p.ActivoEtiquetum)
-                .HasPrincipalKey<Etiquetum>(p => new { p.EmpresaId, p.Id })
-                .HasForeignKey<ActivoEtiquetum>(d => new { d.EmpresaId, d.EtiquetaId })
+            entity.HasOne(d => d.E).WithMany(p => p.ActivoEtiqueta)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.EtiquetaId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ActivoEtiqueta_Etiqueta");
         });
