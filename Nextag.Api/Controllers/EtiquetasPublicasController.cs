@@ -24,6 +24,8 @@ namespace Nextag.Api.Controllers
             [FromQuery] string? origen,
             CancellationToken ct)
         {
+            Response.Headers.CacheControl = "no-store";
+
             var ip = HttpContext.Connection
                 .RemoteIpAddress?
                 .ToString();
@@ -44,8 +46,6 @@ namespace Nextag.Api.Controllers
                     message = "Etiqueta no encontrada o no disponible."
                 });
             }
-
-            Response.Headers.CacheControl = "no-store";
 
             return Ok(resultado);
         }
