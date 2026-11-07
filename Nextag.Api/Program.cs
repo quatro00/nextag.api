@@ -18,6 +18,8 @@ using Nextag.Api.Services.EstadosActivo.Implementation;
 using Nextag.Api.Services.EstadosActivo.Interface;
 using Nextag.Api.Services.Etiquetas.Implementation;
 using Nextag.Api.Services.Etiquetas.Interface;
+using Nextag.Api.Services.EtiquetasPublicas.Implementation;
+using Nextag.Api.Services.EtiquetasPublicas.Interface;
 using Nextag.Api.Services.Marcas.Implementation;
 using Nextag.Api.Services.Marcas.Interface;
 using Nextag.Api.Services.ModelosActivo.Implementation;
@@ -106,6 +108,7 @@ builder.Services.AddScoped<ITipoProveedorService, TipoProveedorService>();
 builder.Services.AddScoped<IActivoService, ActivoService>();
 builder.Services.AddScoped<IEtiquetaService, EtiquetaService>();
 builder.Services.AddScoped<IActivoEtiquetaService, ActivoEtiquetaService>();
+builder.Services.AddScoped<IEtiquetaPublicaService, EtiquetaPublicaService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()

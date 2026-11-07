@@ -207,6 +207,7 @@ public class EtiquetaService : IEtiquetaService
             EsAntimetal = e.EsAntimetal,
             NfcBloqueado = false,
             Anulada = false,
+            PublicaHabilitada = true,
             Estatus = "DISPONIBLE",
             FechaCreacion = e.FechaCreacion,
             UsuarioCreacion = e.UsuarioCreacion
