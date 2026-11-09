@@ -174,11 +174,8 @@ public partial class NextagContext : DbContext
 
             entity.HasIndex(e => new { e.EmpresaId, e.ResponsableId, e.FechaDevolucion }, "IX_ActivoAsignacion_Responsable");
 
-            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId }, "UQ_ActivoAsignacion_Vigente")
-                .IsUnique()
-                .HasFilter("([FechaDevolucion] IS NULL)");
-
             entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.ActivoIdVigente).HasComputedColumnSql("(case when [FechaDevolucion] IS NULL then [ActivoId] else CONVERT([uniqueidentifier],NULL) end)", true);
             entity.Property(e => e.CondicionDevolucion).HasMaxLength(100);
             entity.Property(e => e.FechaActualizacion).HasPrecision(3);
             entity.Property(e => e.FechaAsignacion)
@@ -198,9 +195,9 @@ public partial class NextagContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ActivoAsignacion_Empresa");
 
-            entity.HasOne(d => d.Activo).WithOne(p => p.ActivoAsignacion)
-                .HasPrincipalKey<Activo>(p => new { p.EmpresaId, p.Id })
-                .HasForeignKey<ActivoAsignacion>(d => new { d.EmpresaId, d.ActivoId })
+            entity.HasOne(d => d.Activo).WithMany(p => p.ActivoAsignacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ActivoAsignacion_Activo");
 

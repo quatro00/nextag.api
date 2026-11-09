@@ -37,6 +37,8 @@ public partial class ActivoAsignacion
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public Guid? ActivoIdVigente { get; set; }
+
     public virtual Activo Activo { get; set; } = null!;
 
     public virtual Empresa Empresa { get; set; } = null!;
