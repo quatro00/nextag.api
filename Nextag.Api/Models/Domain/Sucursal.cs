@@ -45,5 +45,7 @@ public partial class Sucursal
 
     public virtual Empresa Empresa { get; set; } = null!;
 
+    public virtual ICollection<Responsable> Responsables { get; set; } = new List<Responsable>();
+
     public virtual ICollection<Ubicacion> Ubicacions { get; set; } = new List<Ubicacion>();
 }

@@ -47,6 +47,8 @@ public partial class Empresa
 
     public virtual ICollection<Proveedor> Proveedors { get; set; } = new List<Proveedor>();
 
+    public virtual ICollection<Responsable> Responsables { get; set; } = new List<Responsable>();
+
     public virtual ICollection<Sucursal> Sucursals { get; set; } = new List<Sucursal>();
 
     public virtual ICollection<TipoUbicacion> TipoUbicacions { get; set; } = new List<TipoUbicacion>();

@@ -52,6 +52,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<ProveedorTipo> ProveedorTipos { get; set; }
 
+    public virtual DbSet<Responsable> Responsables { get; set; }
+
     public virtual DbSet<Sucursal> Sucursals { get; set; }
 
     public virtual DbSet<TipoProveedor> TipoProveedors { get; set; }
@@ -625,6 +627,58 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => new { d.EmpresaId, d.ProveedorId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ProveedorTipo_Proveedor");
+        });
+
+        modelBuilder.Entity<Responsable>(entity =>
+        {
+            entity.ToTable("Responsable");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.AreaResponsableId }, "IX_Responsable_Empresa_Area").HasFilter("([AreaResponsableId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.SucursalId }, "IX_Responsable_Empresa_Sucursal");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Tipo, e.Activo, e.Nombre }, "IX_Responsable_Empresa_Tipo_Activo_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Responsable_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Tipo, e.Codigo }, "UQ_Responsable_Empresa_Tipo_Codigo")
+                .IsUnique()
+                .HasFilter("([Codigo] IS NOT NULL)");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Codigo).HasMaxLength(50);
+            entity.Property(e => e.Contacto).HasMaxLength(150);
+            entity.Property(e => e.Correo).HasMaxLength(256);
+            entity.Property(e => e.Departamento).HasMaxLength(150);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.Observaciones).HasMaxLength(500);
+            entity.Property(e => e.Puesto).HasMaxLength(100);
+            entity.Property(e => e.Telefono).HasMaxLength(30);
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Responsables)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Responsable_Empresa");
+
+            entity.HasOne(d => d.ResponsableNavigation).WithMany(p => p.InverseResponsableNavigation)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.AreaResponsableId })
+                .HasConstraintName("FK_Responsable_Area");
+
+            entity.HasOne(d => d.Sucursal).WithMany(p => p.Responsables)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalId })
+                .HasConstraintName("FK_Responsable_Sucursal");
         });
 
         modelBuilder.Entity<Sucursal>(entity =>
