@@ -10,6 +10,8 @@ using Nextag.Api.Services.ActivoAsignaciones.Implementation;
 using Nextag.Api.Services.ActivoAsignaciones.Interface;
 using Nextag.Api.Services.ActivoEtiquetas.Implementation;
 using Nextag.Api.Services.ActivoEtiquetas.Interface;
+using Nextag.Api.Services.ActivoMovimientos.Implementation;
+using Nextag.Api.Services.ActivoMovimientos.Interface;
 using Nextag.Api.Services.Activos.Implementation;
 using Nextag.Api.Services.Activos.Interface;
 using Nextag.Api.Services.Administrador.Implementation;
@@ -115,6 +117,7 @@ builder.Services.AddScoped<IActivoEtiquetaService, ActivoEtiquetaService>();
 builder.Services.AddScoped<IEtiquetaPublicaService, EtiquetaPublicaService>();
 builder.Services.AddScoped<IResponsableService, ResponsableService>();
 builder.Services.AddScoped<IActivoAsignacionService, ActivoAsignacionService>();
+builder.Services.AddScoped<IActivoMovimientoService, ActivoMovimientoService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
