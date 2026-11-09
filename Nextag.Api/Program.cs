@@ -28,6 +28,8 @@ using Nextag.Api.Services.ProveedorContactos.Implementation;
 using Nextag.Api.Services.ProveedorContactos.Interface;
 using Nextag.Api.Services.Proveedores.Implementation;
 using Nextag.Api.Services.Proveedores.Interface;
+using Nextag.Api.Services.Responsables.Implementation;
+using Nextag.Api.Services.Responsables.Interface;
 using Nextag.Api.Services.Sucursales.Implementation;
 using Nextag.Api.Services.Sucursales.Interface;
 using Nextag.Api.Services.TiposProveedor.Implementation;
@@ -109,6 +111,7 @@ builder.Services.AddScoped<IActivoService, ActivoService>();
 builder.Services.AddScoped<IEtiquetaService, EtiquetaService>();
 builder.Services.AddScoped<IActivoEtiquetaService, ActivoEtiquetaService>();
 builder.Services.AddScoped<IEtiquetaPublicaService, EtiquetaPublicaService>();
+builder.Services.AddScoped<IResponsableService, ResponsableService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
