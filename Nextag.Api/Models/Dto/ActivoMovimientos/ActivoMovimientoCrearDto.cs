@@ -15,7 +15,10 @@ namespace Nextag.Api.Models.Dto.ActivoMovimientos
         public Guid? UbicacionDestinoId { get; set; }
 
         // Destino externo
+        [MaxLength(200)]
         public string? DestinoExternoNombre { get; set; }
+
+        [MaxLength(500)]
         public string? DestinoExternoDireccion { get; set; }
         public Guid? ProveedorDestinoId { get; set; }
 
