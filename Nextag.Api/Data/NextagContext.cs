@@ -175,7 +175,6 @@ public partial class NextagContext : DbContext
             entity.HasIndex(e => new { e.EmpresaId, e.ResponsableId, e.FechaDevolucion }, "IX_ActivoAsignacion_Responsable");
 
             entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
-            entity.Property(e => e.ActivoIdVigente).HasComputedColumnSql("(case when [FechaDevolucion] IS NULL then [ActivoId] else CONVERT([uniqueidentifier],NULL) end)", true);
             entity.Property(e => e.CondicionDevolucion).HasMaxLength(100);
             entity.Property(e => e.FechaActualizacion).HasPrecision(3);
             entity.Property(e => e.FechaAsignacion)
