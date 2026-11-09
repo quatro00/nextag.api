@@ -6,6 +6,8 @@ using Microsoft.OpenApi.Models;
 using Nextag.Api.Data;
 using Nextag.Api.Repositories.Implementation;
 using Nextag.Api.Repositories.Interface;
+using Nextag.Api.Services.ActivoAsignaciones.Implementation;
+using Nextag.Api.Services.ActivoAsignaciones.Interface;
 using Nextag.Api.Services.ActivoEtiquetas.Implementation;
 using Nextag.Api.Services.ActivoEtiquetas.Interface;
 using Nextag.Api.Services.Activos.Implementation;
@@ -112,6 +114,7 @@ builder.Services.AddScoped<IEtiquetaService, EtiquetaService>();
 builder.Services.AddScoped<IActivoEtiquetaService, ActivoEtiquetaService>();
 builder.Services.AddScoped<IEtiquetaPublicaService, EtiquetaPublicaService>();
 builder.Services.AddScoped<IResponsableService, ResponsableService>();
+builder.Services.AddScoped<IActivoAsignacionService, ActivoAsignacionService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
