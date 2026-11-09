@@ -41,6 +41,8 @@ public partial class Responsable
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public virtual ICollection<ActivoAsignacion> ActivoAsignacions { get; set; } = new List<ActivoAsignacion>();
+
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual ICollection<Responsable> InverseResponsableNavigation { get; set; } = new List<Responsable>();

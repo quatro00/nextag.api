@@ -59,6 +59,8 @@ public partial class Activo
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public virtual ActivoAsignacion? ActivoAsignacion { get; set; }
+
     public virtual ICollection<ActivoEtiquetum> ActivoEtiqueta { get; set; } = new List<ActivoEtiquetum>();
 
     public virtual CategoriaActivo CategoriaActivo { get; set; } = null!;

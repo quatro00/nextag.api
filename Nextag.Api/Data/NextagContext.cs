@@ -14,6 +14,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<Activo> Activos { get; set; }
 
+    public virtual DbSet<ActivoAsignacion> ActivoAsignacions { get; set; }
+
     public virtual DbSet<ActivoEtiquetum> ActivoEtiqueta { get; set; }
 
     public virtual DbSet<AspNetRole> AspNetRoles { get; set; }
@@ -160,6 +162,53 @@ public partial class NextagContext : DbContext
                 .HasPrincipalKey(p => new { p.EmpresaId, p.CategoriaActivoId, p.MarcaId, p.Id })
                 .HasForeignKey(d => new { d.EmpresaId, d.CategoriaActivoId, d.MarcaId, d.ModeloActivoId })
                 .HasConstraintName("FK_Activo_Modelo");
+        });
+
+        modelBuilder.Entity<ActivoAsignacion>(entity =>
+        {
+            entity.ToTable("ActivoAsignacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.FechaAsignacion }, "IX_ActivoAsignacion_Empresa_Fecha").IsDescending(false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaAsignacion }, "IX_ActivoAsignacion_HistorialActivo").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ResponsableId, e.FechaDevolucion }, "IX_ActivoAsignacion_Responsable");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId }, "UQ_ActivoAsignacion_Vigente")
+                .IsUnique()
+                .HasFilter("([FechaDevolucion] IS NULL)");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.CondicionDevolucion).HasMaxLength(100);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaAsignacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaDevolucion).HasPrecision(3);
+            entity.Property(e => e.MotivoAsignacion).HasMaxLength(300);
+            entity.Property(e => e.MotivoDevolucion).HasMaxLength(300);
+            entity.Property(e => e.ObservacionesAsignacion).HasMaxLength(1000);
+            entity.Property(e => e.ObservacionesDevolucion).HasMaxLength(1000);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.ActivoAsignacions)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoAsignacion_Empresa");
+
+            entity.HasOne(d => d.Activo).WithOne(p => p.ActivoAsignacion)
+                .HasPrincipalKey<Activo>(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey<ActivoAsignacion>(d => new { d.EmpresaId, d.ActivoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoAsignacion_Activo");
+
+            entity.HasOne(d => d.Responsable).WithMany(p => p.ActivoAsignacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ResponsableId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoAsignacion_Responsable");
         });
 
         modelBuilder.Entity<ActivoEtiquetum>(entity =>
