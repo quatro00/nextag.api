@@ -63,6 +63,8 @@ public partial class Activo
 
     public virtual ICollection<ActivoEtiquetum> ActivoEtiqueta { get; set; } = new List<ActivoEtiquetum>();
 
+    public virtual ICollection<ActivoMovimiento> ActivoMovimientos { get; set; } = new List<ActivoMovimiento>();
+
     public virtual CategoriaActivo CategoriaActivo { get; set; } = null!;
 
     public virtual Empresa Empresa { get; set; } = null!;

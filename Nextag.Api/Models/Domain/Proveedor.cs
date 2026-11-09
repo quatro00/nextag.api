@@ -47,6 +47,8 @@ public partial class Proveedor
 
     public Guid? UsuarioModificacion { get; set; }
 
+    public virtual ICollection<ActivoMovimiento> ActivoMovimientos { get; set; } = new List<ActivoMovimiento>();
+
     public virtual ICollection<Activo> ActivoProveedorNavigations { get; set; } = new List<Activo>();
 
     public virtual ICollection<Activo> ActivoProveedors { get; set; } = new List<Activo>();

@@ -15,5 +15,9 @@ public partial class EstadoActivo
 
     public bool? Activo { get; set; }
 
+    public virtual ICollection<ActivoMovimiento> ActivoMovimientoEstadoActivoDestinos { get; set; } = new List<ActivoMovimiento>();
+
+    public virtual ICollection<ActivoMovimiento> ActivoMovimientoEstadoActivoOrigens { get; set; } = new List<ActivoMovimiento>();
+
     public virtual ICollection<Activo> Activos { get; set; } = new List<Activo>();
 }

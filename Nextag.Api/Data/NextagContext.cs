@@ -18,6 +18,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<ActivoEtiquetum> ActivoEtiqueta { get; set; }
 
+    public virtual DbSet<ActivoMovimiento> ActivoMovimientos { get; set; }
+
     public virtual DbSet<AspNetRole> AspNetRoles { get; set; }
 
     public virtual DbSet<AspNetRoleClaim> AspNetRoleClaims { get; set; }
@@ -57,6 +59,8 @@ public partial class NextagContext : DbContext
     public virtual DbSet<Responsable> Responsables { get; set; }
 
     public virtual DbSet<Sucursal> Sucursals { get; set; }
+
+    public virtual DbSet<TipoMovimientoActivo> TipoMovimientoActivos { get; set; }
 
     public virtual DbSet<TipoProveedor> TipoProveedors { get; set; }
 
@@ -237,6 +241,105 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => new { d.EmpresaId, d.EtiquetaId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ActivoEtiqueta_Etiqueta");
+        });
+
+        modelBuilder.Entity<ActivoMovimiento>(entity =>
+        {
+            entity.ToTable("ActivoMovimiento");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EsDestinoExterno, e.FechaMovimiento }, "IX_ActivoMovimiento_DestinoExterno").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.FechaMovimiento }, "IX_ActivoMovimiento_Empresa_Fecha").IsDescending(false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TipoMovimientoActivoId, e.FechaMovimiento }, "IX_ActivoMovimiento_Empresa_Tipo").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaMovimiento }, "IX_ActivoMovimiento_HistorialActivo").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.MovimientoOrigenId }, "IX_ActivoMovimiento_MovimientoOrigen").HasFilter("([MovimientoOrigenId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TipoReferencia, e.ReferenciaId }, "IX_ActivoMovimiento_Referencia").HasFilter("([ReferenciaId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.Id }, "UQ_ActivoMovimiento_Empresa_Activo_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.DestinoExternoDireccion).HasMaxLength(500);
+            entity.Property(e => e.DestinoExternoNombre).HasMaxLength(200);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaAnulacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaMovimiento)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Motivo).HasMaxLength(300);
+            entity.Property(e => e.MotivoAnulacion).HasMaxLength(500);
+            entity.Property(e => e.Observaciones).HasMaxLength(1000);
+            entity.Property(e => e.OrigenExternoDireccion).HasMaxLength(500);
+            entity.Property(e => e.OrigenExternoNombre).HasMaxLength(200);
+            entity.Property(e => e.SucursalDestinoNombre).HasMaxLength(200);
+            entity.Property(e => e.SucursalOrigenNombre).HasMaxLength(200);
+            entity.Property(e => e.TipoReferencia)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.UbicacionDestinoNombre).HasMaxLength(200);
+            entity.Property(e => e.UbicacionOrigenNombre).HasMaxLength(200);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.ActivoMovimientos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoMovimiento_Empresa");
+
+            entity.HasOne(d => d.EstadoActivoDestino).WithMany(p => p.ActivoMovimientoEstadoActivoDestinos)
+                .HasForeignKey(d => d.EstadoActivoDestinoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoMovimiento_EstadoDestino");
+
+            entity.HasOne(d => d.EstadoActivoOrigen).WithMany(p => p.ActivoMovimientoEstadoActivoOrigens)
+                .HasForeignKey(d => d.EstadoActivoOrigenId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoMovimiento_EstadoOrigen");
+
+            entity.HasOne(d => d.TipoMovimientoActivo).WithMany(p => p.ActivoMovimientos)
+                .HasForeignKey(d => d.TipoMovimientoActivoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoMovimiento_Tipo");
+
+            entity.HasOne(d => d.Activo).WithMany(p => p.ActivoMovimientos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ActivoMovimiento_Activo");
+
+            entity.HasOne(d => d.Proveedor).WithMany(p => p.ActivoMovimientos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ProveedorDestinoId })
+                .HasConstraintName("FK_ActivoMovimiento_ProveedorDestino");
+
+            entity.HasOne(d => d.Sucursal).WithMany(p => p.ActivoMovimientoSucursals)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalDestinoId })
+                .HasConstraintName("FK_ActivoMovimiento_SucursalDestino");
+
+            entity.HasOne(d => d.SucursalNavigation).WithMany(p => p.ActivoMovimientoSucursalNavigations)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalOrigenId })
+                .HasConstraintName("FK_ActivoMovimiento_SucursalOrigen");
+
+            entity.HasOne(d => d.ActivoMovimientoNavigation).WithMany(p => p.InverseActivoMovimientoNavigation)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.ActivoId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId, d.MovimientoOrigenId })
+                .HasConstraintName("FK_ActivoMovimiento_MovimientoOrigen");
+
+            entity.HasOne(d => d.Ubicacion).WithMany(p => p.ActivoMovimientoUbicacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.SucursalId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalDestinoId, d.UbicacionDestinoId })
+                .HasConstraintName("FK_ActivoMovimiento_UbicacionDestino");
+
+            entity.HasOne(d => d.UbicacionNavigation).WithMany(p => p.ActivoMovimientoUbicacionNavigations)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.SucursalId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.SucursalOrigenId, d.UbicacionOrigenId })
+                .HasConstraintName("FK_ActivoMovimiento_UbicacionOrigen");
         });
 
         modelBuilder.Entity<AspNetRole>(entity =>
@@ -760,6 +863,23 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => d.EmpresaId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Sucursal_Empresa");
+        });
+
+        modelBuilder.Entity<TipoMovimientoActivo>(entity =>
+        {
+            entity.ToTable("TipoMovimientoActivo");
+
+            entity.HasIndex(e => e.Clave, "UQ_TipoMovimientoActivo_Clave").IsUnique();
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.Descripcion).HasMaxLength(300);
+            entity.Property(e => e.Nombre).HasMaxLength(100);
         });
 
         modelBuilder.Entity<TipoProveedor>(entity =>
