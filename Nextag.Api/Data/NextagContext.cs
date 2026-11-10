@@ -1240,7 +1240,7 @@ public partial class NextagContext : DbContext
 
             entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_TicketAsignacion_Empresa_Id").IsUnique();
 
-            entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "UX_TicketAsignacion_Vigente")
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId, e.FechaFin }, "UX_TicketAsignacion_Vigente")
                 .IsUnique()
                 .HasFilter("([FechaFin] IS NULL)");
 
@@ -1261,9 +1261,9 @@ public partial class NextagContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_TicketAsignacion_Equipo");
 
-            entity.HasOne(d => d.Ticket).WithOne(p => p.TicketAsignacion)
-                .HasPrincipalKey<Ticket>(p => new { p.EmpresaId, p.Id })
-                .HasForeignKey<TicketAsignacion>(d => new { d.EmpresaId, d.TicketId })
+            entity.HasOne(d => d.Ticket).WithMany(p => p.TicketAsignacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_TicketAsignacion_Ticket");
         });
