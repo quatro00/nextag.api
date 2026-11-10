@@ -201,11 +201,11 @@ public class ActivoService : IActivoService
 
         // Para activos asignados, reservados, en mantenimiento o en tránsito,
         // el traslado NO puede hacerse desde este formulario.
-        if (activo.EstadoActivoId != EstadoDisponible &&
-            (activo.SucursalId != dto.SucursalId || activo.UbicacionId != dto.UbicacionId))
+        if (activo.SucursalId != dto.SucursalId || activo.UbicacionId != dto.UbicacionId)
         {
             return ServiceResult<ActivoDetalleDto>.Fail(
-                "La ubicación de este activo debe modificarse mediante un movimiento.");
+                "La ubicación del activo únicamente puede modificarse " +
+                "mediante el módulo de movimientos.");
         }
 
         var error = await ValidarDatosAsync(dto, empresaId, id, ct);
