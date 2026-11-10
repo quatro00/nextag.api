@@ -351,8 +351,7 @@ namespace Nextag.Api.Services.EquiposSoporte.Implementation
                         .AnyAsync(x =>
                             x.EmpresaId == empresaId &&
                             x.EquipoSoporteId == id &&
-                            x.EstadoOrdenTrabajoId != 4 &&
-                            x.EstadoOrdenTrabajoId != 5,
+                            !x.EstadoOrdenTrabajo.EsFinal,
                             ct);
 
                 if (tieneOrdenesPendientes)
