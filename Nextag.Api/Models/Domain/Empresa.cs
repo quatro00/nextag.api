@@ -39,7 +39,13 @@ public partial class Empresa
 
     public virtual ICollection<Activo> Activos { get; set; } = new List<Activo>();
 
+    public virtual ICollection<ArchivoAdjunto> ArchivoAdjuntos { get; set; } = new List<ArchivoAdjunto>();
+
     public virtual ICollection<CategoriaActivo> CategoriaActivos { get; set; } = new List<CategoriaActivo>();
+
+    public virtual ICollection<CategoriaTicket> CategoriaTickets { get; set; } = new List<CategoriaTicket>();
+
+    public virtual ICollection<EquipoSoporte> EquipoSoportes { get; set; } = new List<EquipoSoporte>();
 
     public virtual ICollection<Etiquetum> Etiqueta { get; set; } = new List<Etiquetum>();
 
@@ -49,11 +55,17 @@ public partial class Empresa
 
     public virtual ICollection<ModeloActivo> ModeloActivos { get; set; } = new List<ModeloActivo>();
 
+    public virtual ICollection<OrdenTrabajo> OrdenTrabajos { get; set; } = new List<OrdenTrabajo>();
+
     public virtual ICollection<Proveedor> Proveedors { get; set; } = new List<Proveedor>();
 
     public virtual ICollection<Responsable> Responsables { get; set; } = new List<Responsable>();
 
     public virtual ICollection<Sucursal> Sucursals { get; set; } = new List<Sucursal>();
+
+    public virtual TicketFolioContador? TicketFolioContador { get; set; }
+
+    public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 
     public virtual ICollection<TipoUbicacion> TipoUbicacions { get; set; } = new List<TipoUbicacion>();
 

@@ -55,6 +55,8 @@ public partial class Proveedor
 
     public virtual Empresa Empresa { get; set; } = null!;
 
+    public virtual ICollection<EquipoSoporte> EquipoSoportes { get; set; } = new List<EquipoSoporte>();
+
     public virtual ICollection<ProveedorContacto> ProveedorContactos { get; set; } = new List<ProveedorContacto>();
 
     public virtual ICollection<ProveedorTipo> ProveedorTipos { get; set; } = new List<ProveedorTipo>();

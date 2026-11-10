@@ -39,5 +39,17 @@ public partial class Usuario
 
     public virtual AspNetUser AspNetUser { get; set; } = null!;
 
+    public virtual ICollection<EquipoSoporteIntegrante> EquipoSoporteIntegrantes { get; set; } = new List<EquipoSoporteIntegrante>();
+
+    public virtual ICollection<OrdenTrabajoActividad> OrdenTrabajoActividads { get; set; } = new List<OrdenTrabajoActividad>();
+
+    public virtual ICollection<OrdenTrabajo> OrdenTrabajos { get; set; } = new List<OrdenTrabajo>();
+
+    public virtual ICollection<TicketAsignacion> TicketAsignacions { get; set; } = new List<TicketAsignacion>();
+
+    public virtual ICollection<TicketSeguimiento> TicketSeguimientos { get; set; } = new List<TicketSeguimiento>();
+
+    public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
     public virtual ICollection<UsuarioEmpresa> UsuarioEmpresas { get; set; } = new List<UsuarioEmpresa>();
 }

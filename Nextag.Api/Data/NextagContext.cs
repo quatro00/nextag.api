@@ -20,6 +20,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<ActivoMovimiento> ActivoMovimientos { get; set; }
 
+    public virtual DbSet<ArchivoAdjunto> ArchivoAdjuntos { get; set; }
+
     public virtual DbSet<AspNetRole> AspNetRoles { get; set; }
 
     public virtual DbSet<AspNetRoleClaim> AspNetRoleClaims { get; set; }
@@ -36,9 +38,19 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<CategoriaActivo> CategoriaActivos { get; set; }
 
+    public virtual DbSet<CategoriaTicket> CategoriaTickets { get; set; }
+
     public virtual DbSet<Empresa> Empresas { get; set; }
 
+    public virtual DbSet<EquipoSoporte> EquipoSoportes { get; set; }
+
+    public virtual DbSet<EquipoSoporteIntegrante> EquipoSoporteIntegrantes { get; set; }
+
     public virtual DbSet<EstadoActivo> EstadoActivos { get; set; }
+
+    public virtual DbSet<EstadoOrdenTrabajo> EstadoOrdenTrabajos { get; set; }
+
+    public virtual DbSet<EstadoTicket> EstadoTickets { get; set; }
 
     public virtual DbSet<EtiquetaConfiguracion> EtiquetaConfiguracions { get; set; }
 
@@ -50,6 +62,12 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<ModeloActivo> ModeloActivos { get; set; }
 
+    public virtual DbSet<OrdenTrabajo> OrdenTrabajos { get; set; }
+
+    public virtual DbSet<OrdenTrabajoActividad> OrdenTrabajoActividads { get; set; }
+
+    public virtual DbSet<PrioridadTicket> PrioridadTickets { get; set; }
+
     public virtual DbSet<Proveedor> Proveedors { get; set; }
 
     public virtual DbSet<ProveedorContacto> ProveedorContactos { get; set; }
@@ -59,6 +77,16 @@ public partial class NextagContext : DbContext
     public virtual DbSet<Responsable> Responsables { get; set; }
 
     public virtual DbSet<Sucursal> Sucursals { get; set; }
+
+    public virtual DbSet<Ticket> Tickets { get; set; }
+
+    public virtual DbSet<TicketAsignacion> TicketAsignacions { get; set; }
+
+    public virtual DbSet<TicketEstadoHistorial> TicketEstadoHistorials { get; set; }
+
+    public virtual DbSet<TicketFolioContador> TicketFolioContadors { get; set; }
+
+    public virtual DbSet<TicketSeguimiento> TicketSeguimientos { get; set; }
 
     public virtual DbSet<TipoMovimientoActivo> TipoMovimientoActivos { get; set; }
 
@@ -342,6 +370,49 @@ public partial class NextagContext : DbContext
                 .HasConstraintName("FK_ActivoMovimiento_UbicacionOrigen");
         });
 
+        modelBuilder.Entity<ArchivoAdjunto>(entity =>
+        {
+            entity.ToTable("ArchivoAdjunto");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.OrdenTrabajoId }, "IX_ArchivoAdjunto_OT");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketSeguimientoId }, "IX_ArchivoAdjunto_Seguimiento");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "IX_ArchivoAdjunto_Ticket");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.HashSha256)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+            entity.Property(e => e.MimeType).HasMaxLength(120);
+            entity.Property(e => e.NombreAlmacenado).HasMaxLength(255);
+            entity.Property(e => e.NombreOriginal).HasMaxLength(255);
+            entity.Property(e => e.RutaStorage).HasMaxLength(1000);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.ArchivoAdjuntos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ArchivoAdjunto_Empresa");
+
+            entity.HasOne(d => d.OrdenTrabajo).WithMany(p => p.ArchivoAdjuntos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.OrdenTrabajoId })
+                .HasConstraintName("FK_ArchivoAdjunto_OT");
+
+            entity.HasOne(d => d.Ticket).WithMany(p => p.ArchivoAdjuntos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
+                .HasConstraintName("FK_ArchivoAdjunto_Ticket");
+
+            entity.HasOne(d => d.TicketSeguimiento).WithMany(p => p.ArchivoAdjuntos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketSeguimientoId })
+                .HasConstraintName("FK_ArchivoAdjunto_Seguimiento");
+        });
+
         modelBuilder.Entity<AspNetRole>(entity =>
         {
             entity.Property(e => e.Name).HasMaxLength(256);
@@ -448,6 +519,32 @@ public partial class NextagContext : DbContext
                 .HasConstraintName("FK_CategoriaActivo_PadreMismaEmpresa");
         });
 
+        modelBuilder.Entity<CategoriaTicket>(entity =>
+        {
+            entity.ToTable("CategoriaTicket");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_CategoriaTicket_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_CategoriaTicket_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(40);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(150);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.CategoriaTickets)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_CategoriaTicket_Empresa");
+        });
+
         modelBuilder.Entity<Empresa>(entity =>
         {
             entity.ToTable("Empresa");
@@ -474,6 +571,75 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Telefono).HasMaxLength(30);
         });
 
+        modelBuilder.Entity<EquipoSoporte>(entity =>
+        {
+            entity.ToTable("EquipoSoporte");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Activo }, "IX_EquipoSoporte_Empresa_Activo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_EquipoSoporte_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_EquipoSoporte_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(40);
+            entity.Property(e => e.CorreoContacto).HasMaxLength(200);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(150);
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(15)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('INTERNO')");
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.EquipoSoportes)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_EquipoSoporte_Empresa");
+
+            entity.HasOne(d => d.Proveedor).WithMany(p => p.EquipoSoportes)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ProveedorId })
+                .HasConstraintName("FK_EquipoSoporte_Proveedor");
+        });
+
+        modelBuilder.Entity<EquipoSoporteIntegrante>(entity =>
+        {
+            entity.ToTable("EquipoSoporteIntegrante");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.UsuarioId, e.Activo }, "IX_EquipoIntegrante_Empresa_Usuario");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_EquipoIntegrante_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EquipoSoporteId, e.UsuarioId }, "UQ_EquipoIntegrante_Equipo_Usuario").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+
+            entity.HasOne(d => d.Usuario).WithMany(p => p.EquipoSoporteIntegrantes)
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_EquipoIntegrante_Usuario");
+
+            entity.HasOne(d => d.E).WithMany(p => p.EquipoSoporteIntegrantes)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.EquipoSoporteId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_EquipoIntegrante_Equipo");
+        });
+
         modelBuilder.Entity<EstadoActivo>(entity =>
         {
             entity.ToTable("EstadoActivo");
@@ -486,6 +652,38 @@ public partial class NextagContext : DbContext
             entity.Property(e => e.Clave).HasMaxLength(50);
             entity.Property(e => e.Descripcion).HasMaxLength(300);
             entity.Property(e => e.Nombre).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<EstadoOrdenTrabajo>(entity =>
+        {
+            entity.ToTable("EstadoOrdenTrabajo");
+
+            entity.HasIndex(e => e.Clave, "UQ_EstadoOrdenTrabajo_Clave").IsUnique();
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.Nombre).HasMaxLength(80);
+        });
+
+        modelBuilder.Entity<EstadoTicket>(entity =>
+        {
+            entity.ToTable("EstadoTicket");
+
+            entity.HasIndex(e => e.Clave, "UQ_EstadoTicket_Clave").IsUnique();
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.Nombre).HasMaxLength(80);
         });
 
         modelBuilder.Entity<EtiquetaConfiguracion>(entity =>
@@ -682,6 +880,104 @@ public partial class NextagContext : DbContext
                 .HasConstraintName("FK_ModeloActivo_EmpresaMarca");
         });
 
+        modelBuilder.Entity<OrdenTrabajo>(entity =>
+        {
+            entity.ToTable("OrdenTrabajo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaCreacion }, "IX_OrdenTrabajo_Activo").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EquipoSoporteId, e.EstadoOrdenTrabajoId }, "IX_OrdenTrabajo_Equipo_Estado");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "IX_OrdenTrabajo_Ticket");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_OrdenTrabajo_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.EstadoOrdenTrabajoId).HasDefaultValueSql("((1))");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaFin).HasPrecision(3);
+            entity.Property(e => e.FechaInicio).HasPrecision(3);
+            entity.Property(e => e.FechaProgramada).HasPrecision(3);
+            entity.Property(e => e.Origen)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('MANUAL')");
+            entity.Property(e => e.Titulo).HasMaxLength(200);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.OrdenTrabajos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_OrdenTrabajo_Empresa");
+
+            entity.HasOne(d => d.EstadoOrdenTrabajo).WithMany(p => p.OrdenTrabajos)
+                .HasForeignKey(d => d.EstadoOrdenTrabajoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_OrdenTrabajo_Estado");
+
+            entity.HasOne(d => d.UsuarioTecnico).WithMany(p => p.OrdenTrabajos)
+                .HasForeignKey(d => d.UsuarioTecnicoId)
+                .HasConstraintName("FK_OrdenTrabajo_Tecnico");
+
+            entity.HasOne(d => d.Activo).WithMany(p => p.OrdenTrabajos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId })
+                .HasConstraintName("FK_OrdenTrabajo_Activo");
+
+            entity.HasOne(d => d.E).WithMany(p => p.OrdenTrabajos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.EquipoSoporteId })
+                .HasConstraintName("FK_OrdenTrabajo_Equipo");
+
+            entity.HasOne(d => d.Ticket).WithMany(p => p.OrdenTrabajos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
+                .HasConstraintName("FK_OrdenTrabajo_Ticket");
+        });
+
+        modelBuilder.Entity<OrdenTrabajoActividad>(entity =>
+        {
+            entity.ToTable("OrdenTrabajoActividad");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.OrdenTrabajoId, e.FechaCreacion }, "IX_OTActividad_Orden_Fecha");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Descripcion).HasMaxLength(2000);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaFin).HasPrecision(3);
+            entity.Property(e => e.FechaInicio).HasPrecision(3);
+
+            entity.HasOne(d => d.UsuarioTecnico).WithMany(p => p.OrdenTrabajoActividads)
+                .HasForeignKey(d => d.UsuarioTecnicoId)
+                .HasConstraintName("FK_OTActividad_Tecnico");
+
+            entity.HasOne(d => d.OrdenTrabajo).WithMany(p => p.OrdenTrabajoActividads)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.OrdenTrabajoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_OTActividad_Orden");
+        });
+
+        modelBuilder.Entity<PrioridadTicket>(entity =>
+        {
+            entity.ToTable("PrioridadTicket");
+
+            entity.HasIndex(e => e.Clave, "UQ_PrioridadTicket_Clave").IsUnique();
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.Nombre).HasMaxLength(60);
+        });
+
         modelBuilder.Entity<Proveedor>(entity =>
         {
             entity.ToTable("Proveedor");
@@ -863,6 +1159,184 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => d.EmpresaId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Sucursal_Empresa");
+        });
+
+        modelBuilder.Entity<Ticket>(entity =>
+        {
+            entity.ToTable("Ticket");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaApertura }, "IX_Ticket_Empresa_Activo_Fecha").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EstadoTicketId, e.FechaApertura }, "IX_Ticket_Empresa_Estado_Fecha").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.PrioridadTicketId, e.FechaApertura }, "IX_Ticket_Empresa_Prioridad").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Folio }, "UQ_Ticket_Empresa_Folio").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Ticket_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Numero }, "UQ_Ticket_Empresa_Numero").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.EstadoTicketId).HasDefaultValueSql("((1))");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaApertura)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaCancelacion).HasPrecision(3);
+            entity.Property(e => e.FechaCierre).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaPrimeraAtencion).HasPrecision(3);
+            entity.Property(e => e.FechaResolucion).HasPrecision(3);
+            entity.Property(e => e.Folio).HasMaxLength(30);
+            entity.Property(e => e.MotivoCancelacion).HasMaxLength(500);
+            entity.Property(e => e.Origen)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('INTERNO')");
+            entity.Property(e => e.PrioridadTicketId).HasDefaultValueSql("((2))");
+            entity.Property(e => e.SolicitanteCorreo).HasMaxLength(200);
+            entity.Property(e => e.SolicitanteNombre).HasMaxLength(200);
+            entity.Property(e => e.SolicitanteTelefono).HasMaxLength(40);
+            entity.Property(e => e.Titulo).HasMaxLength(200);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Ticket_Empresa");
+
+            entity.HasOne(d => d.EstadoTicket).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.EstadoTicketId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Ticket_Estado");
+
+            entity.HasOne(d => d.PrioridadTicket).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.PrioridadTicketId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Ticket_Prioridad");
+
+            entity.HasOne(d => d.SolicitanteUsuario).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.SolicitanteUsuarioId)
+                .HasConstraintName("FK_Ticket_SolicitanteUsuario");
+
+            entity.HasOne(d => d.Activo).WithMany(p => p.Tickets)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId })
+                .HasConstraintName("FK_Ticket_Activo");
+
+            entity.HasOne(d => d.CategoriaTicket).WithMany(p => p.Tickets)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.CategoriaTicketId })
+                .HasConstraintName("FK_Ticket_Categoria");
+        });
+
+        modelBuilder.Entity<TicketAsignacion>(entity =>
+        {
+            entity.ToTable("TicketAsignacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EquipoSoporteId, e.FechaFin }, "IX_TicketAsignacion_Equipo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_TicketAsignacion_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "UX_TicketAsignacion_Vigente")
+                .IsUnique()
+                .HasFilter("([FechaFin] IS NULL)");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaAsignacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaFin).HasPrecision(3);
+            entity.Property(e => e.Motivo).HasMaxLength(300);
+
+            entity.HasOne(d => d.UsuarioTecnico).WithMany(p => p.TicketAsignacions)
+                .HasForeignKey(d => d.UsuarioTecnicoId)
+                .HasConstraintName("FK_TicketAsignacion_Tecnico");
+
+            entity.HasOne(d => d.E).WithMany(p => p.TicketAsignacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.EquipoSoporteId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketAsignacion_Equipo");
+
+            entity.HasOne(d => d.Ticket).WithOne(p => p.TicketAsignacion)
+                .HasPrincipalKey<Ticket>(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey<TicketAsignacion>(d => new { d.EmpresaId, d.TicketId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketAsignacion_Ticket");
+        });
+
+        modelBuilder.Entity<TicketEstadoHistorial>(entity =>
+        {
+            entity.ToTable("TicketEstadoHistorial");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId, e.FechaCambio }, "IX_TicketEstadoHistorial_Ticket_Fecha").IsDescending(false, false, true);
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaCambio)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Motivo).HasMaxLength(500);
+
+            entity.HasOne(d => d.EstadoAnterior).WithMany(p => p.TicketEstadoHistorialEstadoAnteriors)
+                .HasForeignKey(d => d.EstadoAnteriorId)
+                .HasConstraintName("FK_TicketEstadoHistorial_Anterior");
+
+            entity.HasOne(d => d.EstadoNuevo).WithMany(p => p.TicketEstadoHistorialEstadoNuevos)
+                .HasForeignKey(d => d.EstadoNuevoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketEstadoHistorial_Nuevo");
+
+            entity.HasOne(d => d.Ticket).WithMany(p => p.TicketEstadoHistorials)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketEstadoHistorial_Ticket");
+        });
+
+        modelBuilder.Entity<TicketFolioContador>(entity =>
+        {
+            entity.HasKey(e => e.EmpresaId);
+
+            entity.ToTable("TicketFolioContador");
+
+            entity.Property(e => e.EmpresaId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Empresa).WithOne(p => p.TicketFolioContador)
+                .HasForeignKey<TicketFolioContador>(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketFolio_Empresa");
+        });
+
+        modelBuilder.Entity<TicketSeguimiento>(entity =>
+        {
+            entity.ToTable("TicketSeguimiento");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId, e.FechaCreacion }, "IX_TicketSeguimiento_Ticket_Fecha");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_TicketSeguimiento_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.AutorNombre).HasMaxLength(200);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(25)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('COMENTARIO')");
+
+            entity.HasOne(d => d.AutorUsuario).WithMany(p => p.TicketSeguimientos)
+                .HasForeignKey(d => d.AutorUsuarioId)
+                .HasConstraintName("FK_TicketSeguimiento_Autor");
+
+            entity.HasOne(d => d.Ticket).WithMany(p => p.TicketSeguimientos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketSeguimiento_Ticket");
         });
 
         modelBuilder.Entity<TipoMovimientoActivo>(entity =>

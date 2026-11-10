@@ -77,11 +77,15 @@ public partial class Activo
 
     public virtual ModeloActivo? ModeloActivo { get; set; }
 
+    public virtual ICollection<OrdenTrabajo> OrdenTrabajos { get; set; } = new List<OrdenTrabajo>();
+
     public virtual Proveedor? Proveedor { get; set; }
 
     public virtual Proveedor? ProveedorNavigation { get; set; }
 
     public virtual Sucursal Sucursal { get; set; } = null!;
+
+    public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 
     public virtual Ubicacion? Ubicacion { get; set; }
 }
