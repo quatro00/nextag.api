@@ -42,6 +42,8 @@ using Nextag.Api.Services.Responsables.Implementation;
 using Nextag.Api.Services.Responsables.Interface;
 using Nextag.Api.Services.Sucursales.Implementation;
 using Nextag.Api.Services.Sucursales.Interface;
+using Nextag.Api.Services.Tickets.Implementation;
+using Nextag.Api.Services.Tickets.Interface;
 using Nextag.Api.Services.TiposProveedor.Implementation;
 using Nextag.Api.Services.TiposProveedor.Interface;
 using Nextag.Api.Services.TiposUbicacion.Implementation;
@@ -127,6 +129,7 @@ builder.Services.AddScoped<IActivoMovimientoService, ActivoMovimientoService>();
 builder.Services.AddScoped<ICategoriaTicketService, CategoriaTicketService>();
 builder.Services.AddScoped<IEquipoSoporteService, EquipoSoporteService>();
 builder.Services.AddScoped<IEquipoSoporteIntegranteService, EquipoSoporteIntegranteService>();
+builder.Services.AddScoped<ITicketService, TicketService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
