@@ -20,6 +20,8 @@ using Nextag.Api.Services.CategoriasActivo.Implementation;
 using Nextag.Api.Services.CategoriasActivo.Interface;
 using Nextag.Api.Services.CategoriasTicket.Implementation;
 using Nextag.Api.Services.CategoriasTicket.Interface;
+using Nextag.Api.Services.EquipoSoporteIntegrantes.Implementation;
+using Nextag.Api.Services.EquipoSoporteIntegrantes.Interface;
 using Nextag.Api.Services.EquiposSoporte.Implementation;
 using Nextag.Api.Services.EquiposSoporte.Interface;
 using Nextag.Api.Services.EstadosActivo.Implementation;
@@ -124,6 +126,7 @@ builder.Services.AddScoped<IActivoAsignacionService, ActivoAsignacionService>();
 builder.Services.AddScoped<IActivoMovimientoService, ActivoMovimientoService>();
 builder.Services.AddScoped<ICategoriaTicketService, CategoriaTicketService>();
 builder.Services.AddScoped<IEquipoSoporteService, EquipoSoporteService>();
+builder.Services.AddScoped<IEquipoSoporteIntegranteService, EquipoSoporteIntegranteService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
