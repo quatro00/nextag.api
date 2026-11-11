@@ -131,6 +131,7 @@ builder.Services.AddScoped<IEquipoSoporteService, EquipoSoporteService>();
 builder.Services.AddScoped<IEquipoSoporteIntegranteService, EquipoSoporteIntegranteService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ITicketEstadoService, TicketEstadoService>();
+builder.Services.AddScoped<ITicketAsignacionService, TicketAsignacionService>();
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
