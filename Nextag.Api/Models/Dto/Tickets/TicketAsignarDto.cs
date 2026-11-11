@@ -9,7 +9,7 @@ namespace Nextag.Api.Models.Dto.Tickets
 
         public Guid? UsuarioTecnicoId { get; set; }
 
-        [MaxLength(500)]
+        [MaxLength(300)]
         public string? Motivo { get; set; }
     }
 }

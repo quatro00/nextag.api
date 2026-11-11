@@ -164,7 +164,7 @@ namespace Nextag.Api.Services.Tickets.Implementation
                 motivo.Length > 300)
             {
                 return ServiceResult<TicketAsignacionDto>.Fail(
-                    "El motivo debe contener entre 5 y 500 caracteres."
+                    "El motivo debe contener entre 5 y 300 caracteres."
                 );
             }
 
