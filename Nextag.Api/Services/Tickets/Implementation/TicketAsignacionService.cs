@@ -161,7 +161,7 @@ namespace Nextag.Api.Services.Tickets.Implementation
 
             if (string.IsNullOrWhiteSpace(motivo) ||
                 motivo.Length < 5 ||
-                motivo.Length > 500)
+                motivo.Length > 300)
             {
                 return ServiceResult<TicketAsignacionDto>.Fail(
                     "El motivo debe contener entre 5 y 500 caracteres."
@@ -206,10 +206,10 @@ namespace Nextag.Api.Services.Tickets.Implementation
 
             motivo = motivo?.Trim();
 
-            if (motivo?.Length > 500)
+            if (motivo?.Length > 300)
             {
                 return ServiceResult<TicketAsignacionDto>.Fail(
-                    "El motivo no puede superar 500 caracteres."
+                    "El motivo no puede superar 300 caracteres."
                 );
             }
 
@@ -355,6 +355,10 @@ namespace Nextag.Api.Services.Tickets.Implementation
             if (asignacionAnterior != null)
             {
                 asignacionAnterior.FechaFin = ahora;
+
+                // Guardamos primero para liberar
+                // el índice único de asignación vigente.
+                await context.SaveChangesAsync(ct);
             }
 
             // ======================================

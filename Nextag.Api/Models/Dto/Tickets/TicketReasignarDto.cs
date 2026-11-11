@@ -11,7 +11,7 @@ namespace Nextag.Api.Models.Dto.Tickets
 
         [Required]
         [MinLength(5)]
-        [MaxLength(500)]
+        [MaxLength(300)]
         public string Motivo { get; set; } = string.Empty;
     }
 }
