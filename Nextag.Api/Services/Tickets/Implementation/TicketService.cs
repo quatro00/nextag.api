@@ -475,30 +475,6 @@ public class TicketService : ITicketService
 
         var ahora = DateTime.UtcNow;
 
-        var contador = await context.TicketFolioContadors
-            .FirstOrDefaultAsync(x =>
-                x.EmpresaId == empresaId,
-                ct);
-
-
-        if (contador == null)
-        {
-            numero = 1;
-
-            contador = new TicketFolioContador
-            {
-                EmpresaId = empresaId,
-                UltimoNumero = numero
-            };
-
-            context.TicketFolioContadors.Add(contador);
-        }
-        else
-        {
-            numero = checked(contador.UltimoNumero + 1);
-            contador.UltimoNumero = numero;
-        }
-
 
         // ======================================
         // REGISTRO DEL TICKET
