@@ -14,10 +14,14 @@ namespace Nextag.Api.Services.Tickets.Implementation;
 public class TicketService : ITicketService
 {
     private readonly NextagContext context;
+    private readonly ITicketFolioService folioService;
 
-    public TicketService(NextagContext context)
+    public TicketService(
+        NextagContext context,
+        ITicketFolioService folioService)
     {
         this.context = context;
+        this.folioService = folioService;
     }
 
     // ==========================================
@@ -459,19 +463,23 @@ public class TicketService : ITicketService
         await using var transaction =
             await context.Database.BeginTransactionAsync(ct);
 
-        // Bloqueo exclusivo por empresa.
-        // Protege la generación del consecutivo.
+        // ======================================
+        // GENERAR FOLIO
+        // ======================================
 
-        await BloquearFolioEmpresaAsync(
+        var numero = await folioService.SiguienteAsync(
             empresaId,
             ct);
+
+        var folio = $"TIC-{numero:D6}";
+
+        var ahora = DateTime.UtcNow;
 
         var contador = await context.TicketFolioContadors
             .FirstOrDefaultAsync(x =>
                 x.EmpresaId == empresaId,
                 ct);
 
-        long numero;
 
         if (contador == null)
         {
@@ -491,9 +499,6 @@ public class TicketService : ITicketService
             contador.UltimoNumero = numero;
         }
 
-        var folio = $"TIC-{numero:D6}";
-
-        var ahora = DateTime.UtcNow;
 
         // ======================================
         // REGISTRO DEL TICKET
@@ -571,63 +576,6 @@ public class TicketService : ITicketService
             ct);
 
         return ServiceResult<TicketDetalleDto>.Ok(detalle!);
-    }
-
-    // ==========================================
-    // BLOQUEO DE FOLIO POR EMPRESA
-    // ==========================================
-
-    private async Task BloquearFolioEmpresaAsync(
-        Guid empresaId,
-        CancellationToken ct)
-    {
-        var transaction =
-            context.Database.CurrentTransaction
-            ?? throw new InvalidOperationException(
-                "Se requiere una transacción activa."
-            );
-
-        var connection =
-            context.Database.GetDbConnection();
-
-        await using var command =
-            connection.CreateCommand();
-
-        command.Transaction =
-            transaction.GetDbTransaction();
-
-        command.CommandText = """
-            DECLARE @resultado INT;
-
-            EXEC @resultado = sys.sp_getapplock
-                @Resource = @recurso,
-                @LockMode = 'Exclusive',
-                @LockOwner = 'Transaction',
-                @LockTimeout = 15000;
-
-            SELECT @resultado;
-            """;
-
-        var parametro = new SqlParameter(
-            "@recurso",
-            SqlDbType.NVarChar,
-            255)
-        {
-            Value = $"NEXTAG_TICKET_FOLIO_{empresaId:N}"
-        };
-
-        command.Parameters.Add(parametro);
-
-        var resultado = await command.ExecuteScalarAsync(ct);
-
-        var codigo = Convert.ToInt32(resultado);
-
-        if (codigo < 0)
-        {
-            throw new InvalidOperationException(
-                "No fue posible bloquear el consecutivo de tickets."
-            );
-        }
     }
 
     // ==========================================

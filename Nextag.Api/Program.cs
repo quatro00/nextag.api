@@ -51,6 +51,7 @@ using Nextag.Api.Services.TiposUbicacion.Interface;
 using Nextag.Api.Services.Ubicaciones.Implementation;
 using Nextag.Api.Services.Ubicaciones.Interface;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -133,6 +134,31 @@ builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ITicketEstadoService, TicketEstadoService>();
 builder.Services.AddScoped<ITicketAsignacionService, TicketAsignacionService>();
 builder.Services.AddScoped<ITicketSeguimientoService, TicketSeguimientoService>();
+builder.Services.AddScoped<ITicketFolioService, TicketFolioService>();
+builder.Services.AddScoped<ITicketPublicoService, TicketPublicoService>();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode =
+        StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("TicketsPublicos", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey:
+                context.Connection.RemoteIpAddress?
+                    .ToString() ?? "unknown",
+
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+
+                Window = TimeSpan.FromMinutes(1),
+
+                QueueLimit = 0,
+
+                AutoReplenishment = true
+            }));
+});
 
 builder.Services.AddIdentityCore<IdentityUser>()
     .AddRoles<ApplicationRole>()
@@ -189,6 +215,8 @@ app.UseSwaggerUI();
 // app.UseHttpsRedirection();
 
 app.UseCors("AllowAny");
+app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
