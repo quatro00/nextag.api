@@ -123,22 +123,50 @@ namespace Nextag.Api.Services.Archivos.Implementation
             // Otros usuarios: deben ser integrantes
             // autorizados del equipo asignado.
 
+            // ==========================================
+            // VALIDAR PERMISOS DE SOPORTE
+            // ==========================================
+
             if (!esAdministrador)
             {
                 var tienePermiso = await context
                     .TicketAsignacions
                     .AsNoTracking()
                     .AnyAsync(x =>
+
+                        // Empresa y ticket
                         x.EmpresaId == empresaId &&
                         x.TicketId == ticketId &&
+
+                        // Asignación vigente
                         x.FechaFin == null &&
+
+                        // Equipo activo
+                        x.E.Activo == true &&
+
+                        // Técnico autorizado
                         (
                             x.UsuarioTecnicoId == null ||
                             x.UsuarioTecnicoId == usuarioId
                         ) &&
+
+                        // Integrante del equipo
                         x.E.EquipoSoporteIntegrantes.Any(i =>
+
+                            i.EmpresaId == empresaId &&
+
                             i.UsuarioId == usuarioId &&
-                            i.Activo == true),
+
+                            i.Activo == true &&
+
+                            // Usuario activo
+                            i.Usuario.Activo == true &&
+
+                            // Usuario activo en la empresa
+                            i.Usuario.UsuarioEmpresas.Any(ue =>
+                                ue.EmpresaId == empresaId &&
+                                ue.Activo == true)
+                        ),
                         ct);
 
                 if (!tienePermiso)
@@ -373,6 +401,19 @@ namespace Nextag.Api.Services.Archivos.Implementation
                 await context.SaveChangesAsync(ct);
 
                 await transaction.CommitAsync(ct);
+
+                // ==========================================
+                // DESACOPLAR ENTIDAD DEL CONTEXTO
+                // ==========================================
+
+                // A partir de este punto las actualizaciones
+                // de estado utilizarán ExecuteUpdateAsync.
+                //
+                // Evitamos mantener una entidad rastreada
+                // con valores anteriores a los de SQL Server.
+
+                context.Entry(entidad).State =
+                    EntityState.Detached;
             }
 
             // ======================================
@@ -425,24 +466,39 @@ namespace Nextag.Api.Services.Archivos.Implementation
                 return ArchivoAdjuntoResultadoDto.Ok(
                     Mapear(entidad));
             }
-            catch (Exception ex) when (
-                ex is not OperationCanceledException)
+            catch (Exception ex)
             {
+                // ==========================================
+                // REGISTRAR ERROR
+                // ==========================================
+
                 logger.LogError(
                     ex,
-                    "Error al almacenar adjunto {ArchivoId} del ticket {TicketId}",
+                    "Error al almacenar adjunto {ArchivoId} " +
+                    "del ticket {TicketId}. Empresa: {EmpresaId}",
                     archivoId,
-                    ticketId);
+                    ticketId,
+                    empresaId);
 
-                // ==================================
+                // ==========================================
                 // RECUPERAR ESTADO Y RESERVA
-                // ==================================
+                // ==========================================
 
                 try
                 {
+                    // No utilizamos el CancellationToken de
+                    // la solicitud porque el cliente pudo
+                    // haberse desconectado.
+
                     await using var transaction =
                         await context.Database.BeginTransactionAsync(
                             CancellationToken.None);
+
+                    // ======================================
+                    // CAMBIAR PENDIENTE A ERROR
+                    // ======================================
+
+                    var fechaError = DateTime.UtcNow;
 
                     var filas = await context.ArchivoAdjuntos
                         .Where(x =>
@@ -450,39 +506,73 @@ namespace Nextag.Api.Services.Archivos.Implementation
                             x.EmpresaId == empresaId &&
                             x.EstadoAlmacenamiento == "PENDIENTE")
                         .ExecuteUpdateAsync(setters => setters
+
                             .SetProperty(
                                 x => x.EstadoAlmacenamiento,
                                 "ERROR")
+
                             .SetProperty(
                                 x => x.FechaActualizacion,
-                                DateTime.UtcNow),
+                                fechaError),
+
                             CancellationToken.None);
 
-                    // Solamente liberamos si efectivamente
-                    // cambiamos PENDIENTE a ERROR.
+                    // ======================================
+                    // LIBERAR RESERVA PUBLICA
+                    // ======================================
 
-                    if (filas == 1 && autorizacionId.HasValue)
+                    // Solamente liberamos el cupo cuando
+                    // logramos cambiar el estado del archivo.
+                    //
+                    // Si el registro ya era ERROR o
+                    // DISPONIBLE, no descontamos nuevamente.
+
+                    if (
+                        filas == 1 &&
+                        autorizacionId.HasValue)
                     {
                         await tokenService.LiberarReservaAsync(
                             autorizacionId.Value,
                             CancellationToken.None);
                     }
 
+                    // ======================================
+                    // CONFIRMAR RECUPERACION
+                    // ======================================
+
                     await transaction.CommitAsync(
                         CancellationToken.None);
+
+                    logger.LogWarning(
+                        "Adjunto {ArchivoId} marcado como ERROR. " +
+                        "Reserva liberada: {ReservaLiberada}",
+                        archivoId,
+                        filas == 1 && autorizacionId.HasValue);
                 }
                 catch (Exception recuperacionEx)
                 {
                     logger.LogError(
                         recuperacionEx,
-                        "No fue posible recuperar el adjunto {ArchivoId}",
-                        archivoId);
+                        "No fue posible recuperar el adjunto " +
+                        "{ArchivoId} del ticket {TicketId}",
+                        archivoId,
+                        ticketId);
                 }
 
-                // No borramos aquí el archivo físico de forma
-                // automática si la confirmación en SQL falló:
-                // una rutina de conciliación deberá resolver
-                // archivos ERROR/PENDIENTE y posibles residuos.
+                // ==========================================
+                // RESPUESTA
+                // ==========================================
+
+                // Una desconexión del cliente puede provocar
+                // OperationCanceledException.
+                //
+                // No ocultamos la cancelación devolviendo
+                // un resultado de negocio aparentemente normal.
+
+                if (ex is OperationCanceledException)
+                {
+                    throw;
+                }
 
                 return ArchivoAdjuntoResultadoDto.Fail(
                     "No fue posible almacenar el archivo.");
