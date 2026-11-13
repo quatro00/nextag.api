@@ -13,12 +13,15 @@ namespace Nextag.Api.Services.Tickets.Implementation
 
         private readonly ITicketFolioService folioService;
 
-        public TicketPublicoService(
-            NextagContext context,
-            ITicketFolioService folioService)
+        private readonly ITicketAdjuntoTokenService adjuntoTokenService;
+
+        public TicketPublicoService(NextagContext context, ITicketFolioService folioService, ITicketAdjuntoTokenService adjuntoTokenService)
         {
             this.context = context;
+
             this.folioService = folioService;
+
+            this.adjuntoTokenService = adjuntoTokenService;
         }
 
         // ==========================================
@@ -388,6 +391,16 @@ namespace Nextag.Api.Services.Tickets.Implementation
             context.TicketEstadoHistorials.Add(historial);
 
             // ======================================
+            // AUTORIZACION TEMPORAL DE ADJUNTOS
+            // ======================================
+
+            var autorizacionAdjuntos =
+                await adjuntoTokenService.CrearAsync(
+                    empresaId,
+                    ticket.Id,
+                    ct);
+
+            // ======================================
             // GUARDAR
             // ======================================
 
@@ -403,7 +416,19 @@ namespace Nextag.Api.Services.Tickets.Implementation
 
                 FechaApertura = ticket.FechaApertura,
 
-                Mensaje = "Ticket registrado correctamente."
+                Mensaje = "Ticket registrado correctamente.",
+
+                // ======================================
+                // AUTORIZACION PARA ADJUNTOS
+                // ======================================
+
+                TokenCargaAdjuntos =
+        autorizacionAdjuntos.Token,
+
+                FechaExpiracionAdjuntos =
+        autorizacionAdjuntos.FechaExpiracion,
+
+                MaximoAdjuntos = 5
             };
         }
     }

@@ -142,6 +142,7 @@ builder.Services.AddScoped<ITicketSeguimientoService, TicketSeguimientoService>(
 builder.Services.AddScoped<ITicketFolioService, TicketFolioService>();
 builder.Services.AddScoped<ITicketPublicoService, TicketPublicoService>();
 builder.Services.AddScoped<IEtiquetaConfiguracionService, EtiquetaConfiguracionService>();
+builder.Services.AddScoped<ITicketAdjuntoTokenService, TicketAdjuntoTokenService>();
 
 
 // ==========================================

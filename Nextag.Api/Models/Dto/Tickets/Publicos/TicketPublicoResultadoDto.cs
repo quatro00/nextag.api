@@ -9,6 +9,16 @@
         public string Mensaje { get; set; } = string.Empty;
 
         public DateTime FechaApertura { get; set; }
+
+        // ======================================
+        // AUTORIZACION TEMPORAL DE ADJUNTOS
+        // ======================================
+
+        public string? TokenCargaAdjuntos { get; set; }
+
+        public DateTime? FechaExpiracionAdjuntos { get; set; }
+
+        public int MaximoAdjuntos { get; set; }
     }
 
     public class CategoriaTicketPublicaDto
