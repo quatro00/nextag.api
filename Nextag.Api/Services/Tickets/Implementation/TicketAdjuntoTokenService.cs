@@ -228,6 +228,81 @@ namespace Nextag.Api.Services.Tickets.Implementation
         }
 
         // ==========================================
+        // RESERVAR ESPACIO PARA ARCHIVO PUBLICO
+        // ==========================================
+
+        public async Task<bool> ReservarAsync(
+            Guid autorizacionId,
+            CancellationToken ct = default)
+        {
+            if (autorizacionId == Guid.Empty)
+            {
+                return false;
+            }
+
+            var ahora = DateTime.UtcNow;
+
+            var filas = await context.Database
+                .ExecuteSqlInterpolatedAsync($"""
+            UPDATE a
+            SET
+                ArchivosCargados =
+                    a.ArchivosCargados + 1,
+                UltimaUtilizacion = {ahora}
+            FROM dbo.TicketAdjuntoToken AS a
+            INNER JOIN dbo.Ticket AS t
+                ON t.Id = a.TicketId
+                AND t.EmpresaId = a.EmpresaId
+            INNER JOIN dbo.EstadoTicket AS et
+                ON et.Id = t.EstadoTicketId
+            INNER JOIN dbo.Empresa AS e
+                ON e.Id = a.EmpresaId
+            INNER JOIN dbo.EtiquetaConfiguracion AS ec
+                ON ec.EmpresaId = a.EmpresaId
+            WHERE a.Id = {autorizacionId}
+              AND a.Revocado = 0
+              AND a.FechaExpiracion > {ahora}
+              AND a.ArchivosCargados < a.MaximoArchivos
+              AND t.Origen = 'PUBLICO'
+              AND et.Clave = 'ABIERTO'
+              AND e.Activo = 1
+              AND ec.Activo = 1
+              AND ec.PermitirTicketPublico = 1
+            """, ct);
+
+            return filas == 1;
+        }
+
+        // ==========================================
+        // LIBERAR RESERVA FALLIDA
+        // ==========================================
+
+        public async Task LiberarReservaAsync(
+            Guid autorizacionId,
+            CancellationToken ct = default)
+        {
+            if (autorizacionId == Guid.Empty)
+            {
+                throw new ArgumentException(
+                    "La autorización no es válida.");
+            }
+
+            var filas = await context.Database
+                .ExecuteSqlInterpolatedAsync($"""
+            UPDATE dbo.TicketAdjuntoToken
+            SET ArchivosCargados = ArchivosCargados - 1
+            WHERE Id = {autorizacionId}
+              AND ArchivosCargados > 0
+            """, ct);
+
+            if (filas != 1)
+            {
+                throw new InvalidOperationException(
+                    "No fue posible liberar la reserva.");
+            }
+        }
+
+        // ==========================================
         // CALCULAR HASH SHA256
         // ==========================================
 

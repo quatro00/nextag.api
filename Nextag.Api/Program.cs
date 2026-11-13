@@ -165,6 +165,13 @@ if (string.Equals(
     builder.Services.AddScoped<
         IArchivoStorageService,
         LocalFileStorageService>();
+    // ==========================================
+    // SERVICIO DE ARCHIVOS ADJUNTOS
+    // ==========================================
+
+    builder.Services.AddScoped<
+        IArchivoAdjuntoService,
+        ArchivoAdjuntoService>();
 }
 else
 {
