@@ -80,6 +80,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<Ticket> Tickets { get; set; }
 
+    public virtual DbSet<TicketAdjuntoToken> TicketAdjuntoTokens { get; set; }
+
     public virtual DbSet<TicketAsignacion> TicketAsignacions { get; set; }
 
     public virtual DbSet<TicketEstadoHistorial> TicketEstadoHistorials { get; set; }
@@ -374,6 +376,8 @@ public partial class NextagContext : DbContext
         {
             entity.ToTable("ArchivoAdjunto");
 
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "IX_ArchivoAdjunto_Empresa_Ticket_Activo").HasFilter("([Eliminado]=(0))");
+
             entity.HasIndex(e => new { e.EmpresaId, e.OrdenTrabajoId }, "IX_ArchivoAdjunto_OT");
 
             entity.HasIndex(e => new { e.EmpresaId, e.TicketSeguimientoId }, "IX_ArchivoAdjunto_Seguimiento");
@@ -381,9 +385,15 @@ public partial class NextagContext : DbContext
             entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "IX_ArchivoAdjunto_Ticket");
 
             entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.EstadoAlmacenamiento)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('DISPONIBLE')");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
             entity.Property(e => e.FechaCreacion)
                 .HasPrecision(3)
                 .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaEliminacion).HasPrecision(3);
             entity.Property(e => e.HashSha256)
                 .HasMaxLength(64)
                 .IsUnicode(false);
@@ -1230,6 +1240,41 @@ public partial class NextagContext : DbContext
                 .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
                 .HasForeignKey(d => new { d.EmpresaId, d.CategoriaTicketId })
                 .HasConstraintName("FK_Ticket_Categoria");
+        });
+
+        modelBuilder.Entity<TicketAdjuntoToken>(entity =>
+        {
+            entity.ToTable("TicketAdjuntoToken");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "IX_TicketAdjuntoToken_Empresa_Ticket");
+
+            entity.HasIndex(e => e.FechaExpiracion, "IX_TicketAdjuntoToken_Expiracion");
+
+            entity.HasIndex(e => e.TokenHash, "UQ_TicketAdjuntoToken_TokenHash").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaExpiracion).HasPrecision(3);
+            entity.Property(e => e.FechaRevocacion).HasPrecision(3);
+            entity.Property(e => e.MaximoArchivos).HasDefaultValueSql("((5))");
+            entity.Property(e => e.TokenHash)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
+            entity.Property(e => e.UltimaUtilizacion).HasPrecision(3);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.TicketAdjuntoTokens)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketAdjuntoToken_Empresa");
+
+            entity.HasOne(d => d.Ticket).WithMany(p => p.TicketAdjuntoTokens)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketAdjuntoToken_Ticket");
         });
 
         modelBuilder.Entity<TicketAsignacion>(entity =>

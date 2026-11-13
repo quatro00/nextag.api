@@ -63,6 +63,8 @@ public partial class Empresa
 
     public virtual ICollection<Sucursal> Sucursals { get; set; } = new List<Sucursal>();
 
+    public virtual ICollection<TicketAdjuntoToken> TicketAdjuntoTokens { get; set; } = new List<TicketAdjuntoToken>();
+
     public virtual TicketFolioContador? TicketFolioContador { get; set; }
 
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();

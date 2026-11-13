@@ -33,6 +33,16 @@ public partial class ArchivoAdjunto
 
     public Guid? UsuarioCreacion { get; set; }
 
+    public string EstadoAlmacenamiento { get; set; } = null!;
+
+    public bool Eliminado { get; set; }
+
+    public DateTime? FechaEliminacion { get; set; }
+
+    public Guid? UsuarioEliminacion { get; set; }
+
+    public DateTime? FechaActualizacion { get; set; }
+
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual OrdenTrabajo? OrdenTrabajo { get; set; }

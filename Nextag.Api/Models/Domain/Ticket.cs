@@ -71,6 +71,8 @@ public partial class Ticket
 
     public virtual Usuario? SolicitanteUsuario { get; set; }
 
+    public virtual ICollection<TicketAdjuntoToken> TicketAdjuntoTokens { get; set; } = new List<TicketAdjuntoToken>();
+
     public virtual ICollection<TicketAsignacion> TicketAsignacions { get; set; } = new List<TicketAsignacion>();
 
     public virtual ICollection<TicketEstadoHistorial> TicketEstadoHistorials { get; set; } = new List<TicketEstadoHistorial>();
