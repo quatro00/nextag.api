@@ -435,9 +435,11 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     extension,
                     ct);
 
-                // ==================================
-                // MARCAR DISPONIBLE
-                // ==================================
+                // ==========================================
+                // CONFIRMAR ALMACENAMIENTO
+                // ==========================================
+
+                var fechaConfirmacion = DateTime.UtcNow;
 
                 var filas = await context.ArchivoAdjuntos
                     .Where(x =>
@@ -450,8 +452,20 @@ namespace Nextag.Api.Services.Archivos.Implementation
                             "DISPONIBLE")
                         .SetProperty(
                             x => x.FechaActualizacion,
-                            DateTime.UtcNow),
+                            fechaConfirmacion),
                         ct);
+
+                if (filas != 1)
+                {
+                    throw new InvalidOperationException(
+                        "No fue posible confirmar el almacenamiento.");
+                }
+
+                entidad.EstadoAlmacenamiento = "DISPONIBLE";
+                entidad.FechaActualizacion = fechaConfirmacion;
+
+                return ArchivoAdjuntoResultadoDto.Ok(
+                    Mapear(entidad));
 
                 if (filas != 1)
                 {
@@ -490,9 +504,15 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     // la solicitud porque el cliente pudo
                     // haberse desconectado.
 
+                    using var recuperacionCts =
+                    new CancellationTokenSource(
+                        TimeSpan.FromSeconds(30));
+
+                    var recuperacionCt = recuperacionCts.Token;
+
                     await using var transaction =
                         await context.Database.BeginTransactionAsync(
-                            CancellationToken.None);
+                            recuperacionCt);
 
                     // ======================================
                     // CAMBIAR PENDIENTE A ERROR
@@ -515,7 +535,7 @@ namespace Nextag.Api.Services.Archivos.Implementation
                                 x => x.FechaActualizacion,
                                 fechaError),
 
-                            CancellationToken.None);
+                            recuperacionCt);
 
                     // ======================================
                     // LIBERAR RESERVA PUBLICA
@@ -533,7 +553,7 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     {
                         await tokenService.LiberarReservaAsync(
                             autorizacionId.Value,
-                            CancellationToken.None);
+                            recuperacionCt);
                     }
 
                     // ======================================
@@ -541,7 +561,7 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     // ======================================
 
                     await transaction.CommitAsync(
-                        CancellationToken.None);
+                        recuperacionCt);
 
                     logger.LogWarning(
                         "Adjunto {ArchivoId} marcado como ERROR. " +
