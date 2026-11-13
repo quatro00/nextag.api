@@ -26,6 +26,8 @@ using Nextag.Api.Services.EquiposSoporte.Implementation;
 using Nextag.Api.Services.EquiposSoporte.Interface;
 using Nextag.Api.Services.EstadosActivo.Implementation;
 using Nextag.Api.Services.EstadosActivo.Interface;
+using Nextag.Api.Services.EtiquetaConfiguraciones.Implementation;
+using Nextag.Api.Services.EtiquetaConfiguraciones.Interface;
 using Nextag.Api.Services.Etiquetas.Implementation;
 using Nextag.Api.Services.Etiquetas.Interface;
 using Nextag.Api.Services.EtiquetasPublicas.Implementation;
@@ -136,6 +138,7 @@ builder.Services.AddScoped<ITicketAsignacionService, TicketAsignacionService>();
 builder.Services.AddScoped<ITicketSeguimientoService, TicketSeguimientoService>();
 builder.Services.AddScoped<ITicketFolioService, TicketFolioService>();
 builder.Services.AddScoped<ITicketPublicoService, TicketPublicoService>();
+builder.Services.AddScoped<IEtiquetaConfiguracionService, EtiquetaConfiguracionService>();
 
 builder.Services.AddRateLimiter(options =>
 {
