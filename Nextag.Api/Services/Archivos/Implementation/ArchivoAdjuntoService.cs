@@ -466,19 +466,6 @@ namespace Nextag.Api.Services.Archivos.Implementation
 
                 return ArchivoAdjuntoResultadoDto.Ok(
                     Mapear(entidad));
-
-                if (filas != 1)
-                {
-                    throw new InvalidOperationException(
-                        "No fue posible confirmar el almacenamiento.");
-                }
-
-                entidad.EstadoAlmacenamiento = "DISPONIBLE";
-
-                entidad.FechaActualizacion = DateTime.UtcNow;
-
-                return ArchivoAdjuntoResultadoDto.Ok(
-                    Mapear(entidad));
             }
             catch (Exception ex)
             {
