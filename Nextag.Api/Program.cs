@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Nextag.Api.Data;
+using Nextag.Api.Models.Configuration;
 using Nextag.Api.Repositories.Implementation;
 using Nextag.Api.Repositories.Interface;
 using Nextag.Api.Services.ActivoAsignaciones.Implementation;
@@ -16,6 +17,8 @@ using Nextag.Api.Services.Activos.Implementation;
 using Nextag.Api.Services.Activos.Interface;
 using Nextag.Api.Services.Administrador.Implementation;
 using Nextag.Api.Services.Administrador.Interface;
+using Nextag.Api.Services.Archivos.Implementation;
+using Nextag.Api.Services.Archivos.Interface;
 using Nextag.Api.Services.CategoriasActivo.Implementation;
 using Nextag.Api.Services.CategoriasActivo.Interface;
 using Nextag.Api.Services.CategoriasTicket.Implementation;
@@ -139,6 +142,34 @@ builder.Services.AddScoped<ITicketSeguimientoService, TicketSeguimientoService>(
 builder.Services.AddScoped<ITicketFolioService, TicketFolioService>();
 builder.Services.AddScoped<ITicketPublicoService, TicketPublicoService>();
 builder.Services.AddScoped<IEtiquetaConfiguracionService, EtiquetaConfiguracionService>();
+
+
+// ==========================================
+// ALMACENAMIENTO DE ARCHIVOS
+// ==========================================
+
+builder.Services.Configure<ArchivoStorageOptions>(
+    builder.Configuration.GetSection(
+        ArchivoStorageOptions.SectionName));
+
+var proveedorArchivos =
+    builder.Configuration[
+        "ArchivoStorage:Provider"];
+
+if (string.Equals(
+    proveedorArchivos,
+    "Local",
+    StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<
+        IArchivoStorageService,
+        LocalFileStorageService>();
+}
+else
+{
+    throw new InvalidOperationException(
+        $"Proveedor de almacenamiento no soportado: {proveedorArchivos}");
+}
 
 builder.Services.AddRateLimiter(options =>
 {
