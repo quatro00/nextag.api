@@ -39,6 +39,8 @@ using Nextag.Api.Services.Marcas.Implementation;
 using Nextag.Api.Services.Marcas.Interface;
 using Nextag.Api.Services.ModelosActivo.Implementation;
 using Nextag.Api.Services.ModelosActivo.Interface;
+using Nextag.Api.Services.Notificaciones.Implementation;
+using Nextag.Api.Services.Notificaciones.Interface;
 using Nextag.Api.Services.ProveedorContactos.Implementation;
 using Nextag.Api.Services.ProveedorContactos.Interface;
 using Nextag.Api.Services.Proveedores.Implementation;
@@ -143,7 +145,7 @@ builder.Services.AddScoped<ITicketFolioService, TicketFolioService>();
 builder.Services.AddScoped<ITicketPublicoService, TicketPublicoService>();
 builder.Services.AddScoped<IEtiquetaConfiguracionService, EtiquetaConfiguracionService>();
 builder.Services.AddScoped<ITicketAdjuntoTokenService, TicketAdjuntoTokenService>();
-
+builder.Services.AddScoped<INotificacionEventoService, NotificacionEventoService>();
 
 // ==========================================
 // ALMACENAMIENTO DE ARCHIVOS
