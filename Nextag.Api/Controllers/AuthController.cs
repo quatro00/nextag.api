@@ -125,6 +125,7 @@ namespace Nextag.Api.Controllers
                 User = new UserDto()
                 {
                     Id = user.Id,
+                    UsuarioId = usuario.Id.ToString(),
                     Name = $"{usuario.Nombre} {usuario.Apellidos}".Trim(),
                     Avatar = "",
                     Roles = roles.ToList(),
