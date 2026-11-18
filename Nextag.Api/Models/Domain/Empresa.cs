@@ -55,6 +55,12 @@ public partial class Empresa
 
     public virtual ICollection<ModeloActivo> ModeloActivos { get; set; } = new List<ModeloActivo>();
 
+    public virtual ICollection<NotificacionEventoPendiente> NotificacionEventoPendientes { get; set; } = new List<NotificacionEventoPendiente>();
+
+    public virtual ICollection<NotificacionPlantilla> NotificacionPlantillas { get; set; } = new List<NotificacionPlantilla>();
+
+    public virtual ICollection<Notificacion> Notificacions { get; set; } = new List<Notificacion>();
+
     public virtual ICollection<OrdenTrabajo> OrdenTrabajos { get; set; } = new List<OrdenTrabajo>();
 
     public virtual ICollection<Proveedor> Proveedors { get; set; } = new List<Proveedor>();
@@ -74,4 +80,6 @@ public partial class Empresa
     public virtual ICollection<Ubicacion> Ubicacions { get; set; } = new List<Ubicacion>();
 
     public virtual ICollection<UsuarioEmpresa> UsuarioEmpresas { get; set; } = new List<UsuarioEmpresa>();
+
+    public virtual ICollection<UsuarioNotificacionPreferencium> UsuarioNotificacionPreferencia { get; set; } = new List<UsuarioNotificacionPreferencium>();
 }

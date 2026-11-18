@@ -65,6 +65,10 @@ public partial class Ticket
 
     public virtual EstadoTicket EstadoTicket { get; set; } = null!;
 
+    public virtual ICollection<NotificacionEventoPendiente> NotificacionEventoPendientes { get; set; } = new List<NotificacionEventoPendiente>();
+
+    public virtual ICollection<Notificacion> Notificacions { get; set; } = new List<Notificacion>();
+
     public virtual ICollection<OrdenTrabajo> OrdenTrabajos { get; set; } = new List<OrdenTrabajo>();
 
     public virtual PrioridadTicket PrioridadTicket { get; set; } = null!;
@@ -76,6 +80,8 @@ public partial class Ticket
     public virtual ICollection<TicketAsignacion> TicketAsignacions { get; set; } = new List<TicketAsignacion>();
 
     public virtual ICollection<TicketEstadoHistorial> TicketEstadoHistorials { get; set; } = new List<TicketEstadoHistorial>();
+
+    public virtual TicketNotificacionPreferencium? TicketNotificacionPreferencium { get; set; }
 
     public virtual ICollection<TicketSeguimiento> TicketSeguimientos { get; set; } = new List<TicketSeguimiento>();
 }

@@ -41,6 +41,8 @@ public partial class Usuario
 
     public virtual ICollection<EquipoSoporteIntegrante> EquipoSoporteIntegrantes { get; set; } = new List<EquipoSoporteIntegrante>();
 
+    public virtual ICollection<Notificacion> Notificacions { get; set; } = new List<Notificacion>();
+
     public virtual ICollection<OrdenTrabajoActividad> OrdenTrabajoActividads { get; set; } = new List<OrdenTrabajoActividad>();
 
     public virtual ICollection<OrdenTrabajo> OrdenTrabajos { get; set; } = new List<OrdenTrabajo>();
@@ -52,4 +54,6 @@ public partial class Usuario
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 
     public virtual ICollection<UsuarioEmpresa> UsuarioEmpresas { get; set; } = new List<UsuarioEmpresa>();
+
+    public virtual ICollection<UsuarioNotificacionPreferencium> UsuarioNotificacionPreferencia { get; set; } = new List<UsuarioNotificacionPreferencium>();
 }

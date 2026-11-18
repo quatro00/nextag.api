@@ -62,6 +62,16 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<ModeloActivo> ModeloActivos { get; set; }
 
+    public virtual DbSet<Notificacion> Notificacions { get; set; }
+
+    public virtual DbSet<NotificacionEnvio> NotificacionEnvios { get; set; }
+
+    public virtual DbSet<NotificacionEvento> NotificacionEventos { get; set; }
+
+    public virtual DbSet<NotificacionEventoPendiente> NotificacionEventoPendientes { get; set; }
+
+    public virtual DbSet<NotificacionPlantilla> NotificacionPlantillas { get; set; }
+
     public virtual DbSet<OrdenTrabajo> OrdenTrabajos { get; set; }
 
     public virtual DbSet<OrdenTrabajoActividad> OrdenTrabajoActividads { get; set; }
@@ -88,6 +98,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<TicketFolioContador> TicketFolioContadors { get; set; }
 
+    public virtual DbSet<TicketNotificacionPreferencium> TicketNotificacionPreferencia { get; set; }
+
     public virtual DbSet<TicketSeguimiento> TicketSeguimientos { get; set; }
 
     public virtual DbSet<TipoMovimientoActivo> TipoMovimientoActivos { get; set; }
@@ -101,6 +113,8 @@ public partial class NextagContext : DbContext
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
     public virtual DbSet<UsuarioEmpresa> UsuarioEmpresas { get; set; }
+
+    public virtual DbSet<UsuarioNotificacionPreferencium> UsuarioNotificacionPreferencia { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -890,6 +904,208 @@ public partial class NextagContext : DbContext
                 .HasConstraintName("FK_ModeloActivo_EmpresaMarca");
         });
 
+        modelBuilder.Entity<Notificacion>(entity =>
+        {
+            entity.ToTable("Notificacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.UsuarioId, e.MostrarInterna, e.FechaCreacion }, "IX_Notificacion_Campanita")
+                .IsDescending(false, false, false, true)
+                .HasFilter("([UsuarioId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.UsuarioId, e.FechaCreacion }, "IX_Notificacion_NoLeidas")
+                .IsDescending(false, false, true)
+                .HasFilter("([MostrarInterna]=(1) AND [FechaLectura] IS NULL AND [UsuarioId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId, e.FechaCreacion }, "IX_Notificacion_Ticket").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EventoPendienteId, e.DestinatarioClave }, "UQ_Notificacion_DestinatarioEvento").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Notificacion_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.DestinatarioClave).HasMaxLength(200);
+            entity.Property(e => e.DestinatarioCorreo).HasMaxLength(320);
+            entity.Property(e => e.DestinatarioNombre).HasMaxLength(200);
+            entity.Property(e => e.DestinatarioTelefono).HasMaxLength(30);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaLectura).HasPrecision(3);
+            entity.Property(e => e.Mensaje).HasMaxLength(1000);
+            entity.Property(e => e.RutaNavegacion).HasMaxLength(500);
+            entity.Property(e => e.TipoDestinatario)
+                .HasMaxLength(10)
+                .IsUnicode(false);
+            entity.Property(e => e.Titulo).HasMaxLength(200);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Notificacions)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Notificacion_Empresa");
+
+            entity.HasOne(d => d.Usuario).WithMany(p => p.Notificacions)
+                .HasForeignKey(d => d.UsuarioId)
+                .HasConstraintName("FK_Notificacion_Usuario");
+
+            entity.HasOne(d => d.E).WithMany(p => p.Notificacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.EventoPendienteId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Notificacion_EventoPendiente");
+
+            entity.HasOne(d => d.Ticket).WithMany(p => p.Notificacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
+                .HasConstraintName("FK_Notificacion_Ticket");
+        });
+
+        modelBuilder.Entity<NotificacionEnvio>(entity =>
+        {
+            entity.ToTable("NotificacionEnvio");
+
+            entity.HasIndex(e => new { e.Estado, e.FechaProximoIntento, e.FechaCreacion }, "IX_NotificacionEnvio_Cola");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Estado, e.FechaCreacion }, "IX_NotificacionEnvio_EmpresaEstado").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.NotificacionId, e.Canal }, "UQ_NotificacionEnvio_Canal").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Canal)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.Destino).HasMaxLength(320);
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('PENDIENTE')");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaBloqueo).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaEnviado).HasPrecision(3);
+            entity.Property(e => e.FechaProximoIntento).HasPrecision(3);
+            entity.Property(e => e.FechaUltimoIntento).HasPrecision(3);
+            entity.Property(e => e.IdentificadorProveedor).HasMaxLength(200);
+            entity.Property(e => e.MaxIntentos).HasDefaultValueSql("((5))");
+            entity.Property(e => e.Proveedor)
+                .HasMaxLength(60)
+                .IsUnicode(false);
+            entity.Property(e => e.UltimoError).HasMaxLength(1000);
+
+            entity.HasOne(d => d.Notificacion).WithMany(p => p.NotificacionEnvios)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.NotificacionId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_NotificacionEnvio_Notificacion");
+        });
+
+        modelBuilder.Entity<NotificacionEvento>(entity =>
+        {
+            entity.ToTable("NotificacionEvento");
+
+            entity.HasIndex(e => e.Clave, "UQ_NotificacionEvento_Clave").IsUnique();
+
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave)
+                .HasMaxLength(60)
+                .IsUnicode(false);
+            entity.Property(e => e.Descripcion).HasMaxLength(350);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(120);
+        });
+
+        modelBuilder.Entity<NotificacionEventoPendiente>(entity =>
+        {
+            entity.ToTable("NotificacionEventoPendiente");
+
+            entity.HasIndex(e => new { e.Estado, e.FechaProximoIntento, e.FechaCreacion }, "IX_NotifEventoPend_Cola");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId, e.FechaCreacion }, "IX_NotifEventoPend_EmpresaTicket").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_NotificacionEventoPendiente_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ClaveIdempotencia }, "UQ_NotificacionEventoPendiente_Idempotencia").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.ClaveIdempotencia)
+                .HasMaxLength(150)
+                .IsUnicode(false);
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('PENDIENTE')");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaBloqueo).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaProcesamiento).HasPrecision(3);
+            entity.Property(e => e.FechaProximoIntento).HasPrecision(3);
+            entity.Property(e => e.MaxIntentos).HasDefaultValueSql("((5))");
+            entity.Property(e => e.UltimoError).HasMaxLength(1000);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.NotificacionEventoPendientes)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_NotifEventoPend_Empresa");
+
+            entity.HasOne(d => d.NotificacionEvento).WithMany(p => p.NotificacionEventoPendientes)
+                .HasForeignKey(d => d.NotificacionEventoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_NotifEventoPend_Evento");
+
+            entity.HasOne(d => d.Ticket).WithMany(p => p.NotificacionEventoPendientes)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
+                .HasConstraintName("FK_NotifEventoPend_Ticket");
+        });
+
+        modelBuilder.Entity<NotificacionPlantilla>(entity =>
+        {
+            entity.ToTable("NotificacionPlantilla");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.NotificacionEventoId, e.Canal, e.Idioma }, "UX_NotifPlantilla_Empresa")
+                .IsUnique()
+                .HasFilter("([EmpresaId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.NotificacionEventoId, e.Canal, e.Idioma }, "UX_NotifPlantilla_Global")
+                .IsUnique()
+                .HasFilter("([EmpresaId] IS NULL)");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Asunto).HasMaxLength(250);
+            entity.Property(e => e.Canal)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.CodigoProveedor).HasMaxLength(150);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Idioma)
+                .HasMaxLength(10)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('es-MX')");
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.NotificacionPlantillas)
+                .HasForeignKey(d => d.EmpresaId)
+                .HasConstraintName("FK_NotifPlantilla_Empresa");
+
+            entity.HasOne(d => d.NotificacionEvento).WithMany(p => p.NotificacionPlantillas)
+                .HasForeignKey(d => d.NotificacionEventoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_NotifPlantilla_Evento");
+        });
+
         modelBuilder.Entity<OrdenTrabajo>(entity =>
         {
             entity.ToTable("OrdenTrabajo");
@@ -1355,6 +1571,30 @@ public partial class NextagContext : DbContext
                 .HasConstraintName("FK_TicketFolio_Empresa");
         });
 
+        modelBuilder.Entity<TicketNotificacionPreferencium>(entity =>
+        {
+            entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "UQ_TicketNotifPref_Ticket").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaConsentimiento).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.OrigenConsentimiento)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.VersionAviso)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+
+            entity.HasOne(d => d.Ticket).WithOne(p => p.TicketNotificacionPreferencium)
+                .HasPrincipalKey<Ticket>(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey<TicketNotificacionPreferencium>(d => new { d.EmpresaId, d.TicketId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TicketNotifPref_Ticket");
+        });
+
         modelBuilder.Entity<TicketSeguimiento>(entity =>
         {
             entity.ToTable("TicketSeguimiento");
@@ -1550,6 +1790,44 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => d.UsuarioId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_UsuarioEmpresa_Usuario");
+        });
+
+        modelBuilder.Entity<UsuarioNotificacionPreferencium>(entity =>
+        {
+            entity.HasIndex(e => new { e.UsuarioId, e.EmpresaId }, "IX_UsuarioNotifPref_UsuarioEmpresa");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.UsuarioId, e.NotificacionEventoId, e.Canal }, "UQ_UsuarioNotifPref").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Canal)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaConsentimiento).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Habilitado)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.VersionAviso)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.UsuarioNotificacionPreferencia)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UsuarioNotifPref_Empresa");
+
+            entity.HasOne(d => d.NotificacionEvento).WithMany(p => p.UsuarioNotificacionPreferencia)
+                .HasForeignKey(d => d.NotificacionEventoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UsuarioNotifPref_Evento");
+
+            entity.HasOne(d => d.Usuario).WithMany(p => p.UsuarioNotificacionPreferencia)
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UsuarioNotifPref_Usuario");
         });
 
         OnModelCreatingPartial(modelBuilder);
