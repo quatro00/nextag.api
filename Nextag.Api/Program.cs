@@ -147,6 +147,7 @@ builder.Services.AddScoped<IEtiquetaConfiguracionService, EtiquetaConfiguracionS
 builder.Services.AddScoped<ITicketAdjuntoTokenService, TicketAdjuntoTokenService>();
 builder.Services.AddScoped<INotificacionEventoService, NotificacionEventoService>();
 builder.Services.AddScoped<INotificacionDestinatarioService, NotificacionDestinatarioService>();
+builder.Services.AddScoped<INotificacionInternaService, NotificacionInternaService>();
 
 // ==========================================
 // ALMACENAMIENTO DE ARCHIVOS
