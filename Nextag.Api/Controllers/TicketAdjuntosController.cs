@@ -28,6 +28,10 @@ namespace Nextag.Api.Controllers
                    User.IsInRole("ADMIN_EMPRESA");
         }
 
+        private bool EsAdministradorGlobal()
+        {
+            return User.IsInRole("ADMINISTRADOR");
+        }
         // ==========================================
         // SUBIR ARCHIVO
         // ==========================================
@@ -49,6 +53,7 @@ namespace Nextag.Api.Controllers
                 ticketId,
                 usuarioId,
                 EsAdministrador(),
+                EsAdministradorGlobal(),
                 archivo,
                 ct);
 

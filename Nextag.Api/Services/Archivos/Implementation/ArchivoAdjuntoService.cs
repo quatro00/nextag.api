@@ -25,38 +25,59 @@ namespace Nextag.Api.Services.Archivos.Implementation
 
         private readonly long maximoBytesArchivo;
 
-        private async Task<bool> PuedeConsultarTicketAsync(
-    Guid empresaId,
-    Guid ticketId,
-    Guid usuarioId,
-    bool esAdministrador,
-    CancellationToken ct)
+        // ==========================================
+        // VALIDAR CONSULTA Y VISIBILIDAD DEL TICKET
+        // ==========================================
+
+        private async Task<(bool Autorizado, bool AccesoCompleto)>
+            ValidarAccesoTicketAsync(
+                Guid empresaId,
+                Guid ticketId,
+                Guid usuarioId,
+                bool esAdministrador,
+                CancellationToken ct)
         {
             if (empresaId == Guid.Empty ||
                 ticketId == Guid.Empty ||
                 usuarioId == Guid.Empty)
             {
-                return false;
+                return (false, false);
             }
 
-            var ticketExiste = await context.Tickets
+            // ======================================
+            // VALIDAR EXISTENCIA DEL TICKET
+            // ======================================
+
+            var ticket = await context.Tickets
                 .AsNoTracking()
-                .AnyAsync(x =>
+                .Where(x =>
                     x.Id == ticketId &&
-                    x.EmpresaId == empresaId,
-                    ct);
+                    x.EmpresaId == empresaId)
+                .Select(x => new
+                {
+                    x.SolicitanteUsuarioId
+                })
+                .FirstOrDefaultAsync(ct);
 
-            if (!ticketExiste)
-                return false;
+            if (ticket == null)
+            {
+                return (false, false);
+            }
 
-            // Administrador global o de empresa.
-            // El filtro RequiereEmpresa valida previamente
-            // la empresa activa y los permisos de acceso.
+            // ======================================
+            // VALIDAR USUARIO ACTIVO
+            // ======================================
+
+            // Los administradores llegan a este método
+            // después de pasar ValidarEmpresaFilter.
+            //
+            // El filtro verifica usuario activo,
+            // rol vigente y acceso a empresa.
 
             if (esAdministrador)
-                return true;
-
-            // Validar usuario activo dentro de la empresa.
+            {
+                return (true, true);
+            }
 
             var usuarioValido = await context.Usuarios
                 .AsNoTracking()
@@ -69,68 +90,145 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     ct);
 
             if (!usuarioValido)
-                return false;
+            {
+                return (false, false);
+            }
 
-            // Solicitante del ticket.
+            // ======================================
+            // VALIDAR PERSONAL DE SOPORTE
+            // ======================================
 
-            var esSolicitante = await context.Tickets
-                .AsNoTracking()
-                .AnyAsync(x =>
-                    x.Id == ticketId &&
-                    x.EmpresaId == empresaId &&
-                    x.SolicitanteUsuarioId == usuarioId,
-                    ct);
+            var esSoporte = await EsSoporteAutorizadoAsync(
+                empresaId,
+                ticketId,
+                usuarioId,
+                ct);
 
-            if (esSolicitante)
-                return true;
+            if (esSoporte)
+            {
+                // Puede consultar todos los adjuntos.
+                return (true, true);
+            }
 
-            // Integrante autorizado del equipo asignado.
+            // ======================================
+            // VALIDAR SOLICITANTE
+            // ======================================
 
+            if (ticket.SolicitanteUsuarioId == usuarioId)
+            {
+                // Puede consultar únicamente
+                // archivos visibles al solicitante.
+                return (true, false);
+            }
+
+            // ======================================
+            // SIN PERMISOS
+            // ======================================
+
+            return (false, false);
+        }
+
+        // ==========================================
+        // VALIDAR INTEGRANTE DE SOPORTE AUTORIZADO
+        // ==========================================
+
+        private async Task<bool> EsSoporteAutorizadoAsync(
+            Guid empresaId,
+            Guid ticketId,
+            Guid usuarioId,
+            CancellationToken ct)
+        {
             return await context.TicketAsignacions
                 .AsNoTracking()
                 .AnyAsync(x =>
+
                     x.EmpresaId == empresaId &&
                     x.TicketId == ticketId &&
+
+                    // Asignación vigente
                     x.FechaFin == null &&
+
+                    // Equipo activo
                     x.E.Activo == true &&
+
+                    // Técnico autorizado
                     (
                         x.UsuarioTecnicoId == null ||
                         x.UsuarioTecnicoId == usuarioId
                     ) &&
+
+                    // Integrante activo
                     x.E.EquipoSoporteIntegrantes.Any(i =>
+
                         i.EmpresaId == empresaId &&
                         i.UsuarioId == usuarioId &&
-                        i.Activo == true),
+                        i.Activo == true &&
+
+                        // Usuario activo
+                        i.Usuario.Activo == true &&
+
+                        // Pertenencia activa
+                        i.Usuario.UsuarioEmpresas.Any(ue =>
+                            ue.EmpresaId == empresaId &&
+                            ue.Activo == true)
+                    ),
                     ct);
         }
+        // ==========================================
+        // LISTAR ARCHIVOS DEL TICKET
+        // ==========================================
 
         public async Task<List<ArchivoAdjuntoDto>> ListarAsync(
-    Guid empresaId,
-    Guid ticketId,
-    Guid usuarioId,
-    bool esAdministrador,
-    CancellationToken ct = default)
+            Guid empresaId,
+            Guid ticketId,
+            Guid usuarioId,
+            bool esAdministrador,
+            CancellationToken ct = default)
         {
-            var autorizado = await PuedeConsultarTicketAsync(
+            // ======================================
+            // VALIDAR ACCESO
+            // ======================================
+
+            var acceso = await ValidarAccesoTicketAsync(
                 empresaId,
                 ticketId,
                 usuarioId,
                 esAdministrador,
                 ct);
 
-            if (!autorizado)
+            if (!acceso.Autorizado)
             {
                 throw new UnauthorizedAccessException(
                     "No tienes permiso para consultar este ticket.");
             }
 
-            var archivos = await context.ArchivoAdjuntos
+            // ======================================
+            // CONSULTA BASE
+            // ======================================
+
+            var query = context.ArchivoAdjuntos
                 .AsNoTracking()
                 .Where(x =>
                     x.EmpresaId == empresaId &&
                     x.TicketId == ticketId &&
                     x.Eliminado == false &&
-                    x.EstadoAlmacenamiento == "DISPONIBLE")
+                    x.EstadoAlmacenamiento == "DISPONIBLE");
+
+            // ======================================
+            // RESTRINGIR ARCHIVOS PRIVADOS
+            // ======================================
+
+            if (!acceso.AccesoCompleto)
+            {
+                query = query.Where(x =>
+                    x.VisibleSolicitante == true);
+            }
+
+            // ======================================
+            // OBTENER ARCHIVOS
+            // ======================================
+
+            var archivos = await query
                 .OrderByDescending(x => x.FechaCreacion)
                 .ToListAsync(ct);
 
@@ -139,72 +237,169 @@ namespace Nextag.Api.Services.Archivos.Implementation
                 .ToList();
         }
 
+        // ==========================================
+        // DESCARGAR ARCHIVO DEL TICKET
+        // ==========================================
+
         public async Task<ArchivoDescargaDto?> DescargarAsync(
-    Guid empresaId,
-    Guid ticketId,
-    Guid archivoId,
-    Guid usuarioId,
-    bool esAdministrador,
-    CancellationToken ct = default)
+            Guid empresaId,
+            Guid ticketId,
+            Guid archivoId,
+            Guid usuarioId,
+            bool esAdministrador,
+            CancellationToken ct = default)
         {
-            var autorizado = await PuedeConsultarTicketAsync(
+            // ======================================
+            // VALIDAR ACCESO
+            // ======================================
+
+            var acceso = await ValidarAccesoTicketAsync(
                 empresaId,
                 ticketId,
                 usuarioId,
                 esAdministrador,
                 ct);
 
-            if (!autorizado)
+            if (!acceso.Autorizado)
             {
                 throw new UnauthorizedAccessException(
                     "No tienes permiso para consultar este ticket.");
             }
 
-            var archivo = await context.ArchivoAdjuntos
+            // ======================================
+            // BUSCAR ARCHIVO
+            // ======================================
+
+            var query = context.ArchivoAdjuntos
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x =>
+                .Where(x =>
                     x.Id == archivoId &&
                     x.EmpresaId == empresaId &&
                     x.TicketId == ticketId &&
                     x.Eliminado == false &&
-                    x.EstadoAlmacenamiento == "DISPONIBLE",
-                    ct);
+                    x.EstadoAlmacenamiento == "DISPONIBLE");
+
+            // ======================================
+            // VALIDAR VISIBILIDAD
+            // ======================================
+
+            if (!acceso.AccesoCompleto)
+            {
+                query = query.Where(x =>
+                    x.VisibleSolicitante == true);
+            }
+
+            var archivo = await query.FirstOrDefaultAsync(ct);
 
             if (archivo == null)
-                return null;
-
-            var contenido = await storage.AbrirLecturaAsync(
-                archivo.RutaStorage,
-                ct);
-
-            return new ArchivoDescargaDto
             {
-                Contenido = contenido,
-                NombreArchivo = archivo.NombreOriginal,
-                MimeType = archivo.MimeType
-            };
+                return null;
+            }
+
+            // ======================================
+            // ABRIR ARCHIVO FISICO
+            // ======================================
+
+            try
+            {
+                var contenido = await storage.AbrirLecturaAsync(
+                    archivo.RutaStorage,
+                    ct);
+
+                return new ArchivoDescargaDto
+                {
+                    Contenido = contenido,
+                    NombreArchivo = archivo.NombreOriginal,
+                    MimeType = archivo.MimeType
+                };
+            }
+            catch (FileNotFoundException ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Archivo físico no encontrado. " +
+                    "ArchivoId: {ArchivoId}, TicketId: {TicketId}",
+                    archivoId,
+                    ticketId);
+
+                return null;
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Directorio del archivo no encontrado. " +
+                    "ArchivoId: {ArchivoId}, TicketId: {TicketId}",
+                    archivoId,
+                    ticketId);
+
+                return null;
+            }
         }
 
+        // ==========================================
+        // ELIMINAR ARCHIVO LOGICAMENTE
+        // ==========================================
+
         public async Task<bool> EliminarAsync(
-    Guid empresaId,
-    Guid ticketId,
-    Guid archivoId,
-    Guid usuarioId,
-    bool esAdministrador,
-    CancellationToken ct = default)
+            Guid empresaId,
+            Guid ticketId,
+            Guid archivoId,
+            Guid usuarioId,
+            bool esAdministrador,
+            CancellationToken ct = default)
         {
-            var autorizado = await PuedeConsultarTicketAsync(
+            // ======================================
+            // VALIDAR ACCESO AL TICKET
+            // ======================================
+
+            var acceso = await ValidarAccesoTicketAsync(
                 empresaId,
                 ticketId,
                 usuarioId,
                 esAdministrador,
                 ct);
 
-            if (!autorizado)
+            if (!acceso.Autorizado)
             {
                 throw new UnauthorizedAccessException(
                     "No tienes permiso para consultar este ticket.");
             }
+
+            // ======================================
+            // VALIDAR ESTADO DEL TICKET
+            // ======================================
+
+            var ticket = await context.Tickets
+                .AsNoTracking()
+                .Where(x =>
+                    x.Id == ticketId &&
+                    x.EmpresaId == empresaId)
+                .Select(x => new
+                {
+                    Estado = x.EstadoTicket.Clave
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (ticket == null)
+            {
+                return false;
+            }
+
+            // Los operadores no pueden eliminar
+            // evidencias de tickets cerrados
+            // o cancelados.
+
+            if (!esAdministrador &&
+                ticket.Estado is "CERRADO" or "CANCELADO")
+            {
+                throw new UnauthorizedAccessException(
+                    "No se pueden eliminar archivos de un ticket cerrado o cancelado.");
+            }
+
+            // ======================================
+            // BUSCAR ARCHIVO
+            // ======================================
 
             var archivo = await context.ArchivoAdjuntos
                 .AsNoTracking()
@@ -217,14 +412,44 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     ct);
 
             if (archivo == null)
-                return false;
-
-            if (!esAdministrador &&
-                archivo.UsuarioCreacion != usuarioId)
             {
-                throw new UnauthorizedAccessException(
-                    "No tienes permiso para eliminar este archivo.");
+                return false;
             }
+
+            // ======================================
+            // VALIDAR PROPIEDAD DEL ARCHIVO
+            // ======================================
+
+            if (!esAdministrador)
+            {
+                // Solo integrantes autorizados de
+                // soporte pueden eliminar archivos.
+
+                var esSoporte = await EsSoporteAutorizadoAsync(
+                    empresaId,
+                    ticketId,
+                    usuarioId,
+                    ct);
+
+                if (!esSoporte)
+                {
+                    throw new UnauthorizedAccessException(
+                        "No tienes permiso para eliminar archivos de este ticket.");
+                }
+
+                // Un operador únicamente puede
+                // eliminar sus propios archivos.
+
+                if (archivo.UsuarioCreacion != usuarioId)
+                {
+                    throw new UnauthorizedAccessException(
+                        "No tienes permiso para eliminar este archivo.");
+                }
+            }
+
+            // ======================================
+            // ELIMINACION LOGICA
+            // ======================================
 
             var fecha = DateTime.UtcNow;
 
@@ -234,7 +459,19 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     x.EmpresaId == empresaId &&
                     x.TicketId == ticketId &&
                     x.Eliminado == false &&
-                    x.EstadoAlmacenamiento == "DISPONIBLE")
+                    x.EstadoAlmacenamiento == "DISPONIBLE" &&
+                    (
+                        esAdministrador ||
+                        x.UsuarioCreacion == usuarioId
+                    ) &&
+                    (
+                        esAdministrador ||
+                        (
+                            x.Ticket != null &&
+                            x.Ticket.EstadoTicket.Clave != "CERRADO" &&
+                            x.Ticket.EstadoTicket.Clave != "CANCELADO"
+                        )
+                    ))
                 .ExecuteUpdateAsync(setters => setters
 
                     .SetProperty(
@@ -291,13 +528,14 @@ namespace Nextag.Api.Services.Archivos.Implementation
         // ==========================================
 
         public async Task<ArchivoAdjuntoResultadoDto>
-            SubirInternoAsync(
-                Guid empresaId,
-                Guid ticketId,
-                Guid usuarioId,
-                bool esAdministrador,
-                IFormFile archivo,
-                CancellationToken ct = default)
+        SubirInternoAsync(
+            Guid empresaId,
+            Guid ticketId,
+            Guid usuarioId,
+            bool esAdministrador,
+            bool esAdministradorGlobal,
+            IFormFile archivo,
+            CancellationToken ct = default)
         {
             if (empresaId == Guid.Empty ||
                 ticketId == Guid.Empty ||
@@ -331,17 +569,30 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     "No se pueden agregar archivos al ticket en su estado actual.");
             }
 
-            // Confirmar que el usuario se encuentre
-            // activo en la empresa.
+            // ==========================================
+            // VALIDAR USUARIO Y PERTENENCIA A EMPRESA
+            // ==========================================
+
+            // El administrador global puede operar sobre
+            // cualquier empresa activa.
+            //
+            // Los demás usuarios deben pertenecer
+            // activamente a la empresa seleccionada.
+            //
+            // ValidarEmpresaFilter también valida
+            // estos permisos antes de ejecutar la acción.
 
             var usuarioValido = await context.Usuarios
                 .AsNoTracking()
                 .AnyAsync(x =>
                     x.Id == usuarioId &&
                     x.Activo == true &&
-                    x.UsuarioEmpresas.Any(ue =>
-                        ue.EmpresaId == empresaId &&
-                        ue.Activo == true),
+                    (
+                        esAdministradorGlobal ||
+                        x.UsuarioEmpresas.Any(ue =>
+                            ue.EmpresaId == empresaId &&
+                            ue.Activo == true)
+                    ),
                     ct);
 
             if (!usuarioValido)

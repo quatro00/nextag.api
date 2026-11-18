@@ -8,14 +8,14 @@ namespace Nextag.Api.Services.Archivos.Interface
         // CARGA INTERNA
         // ==========================================
 
-        Task<ArchivoAdjuntoResultadoDto>
-            SubirInternoAsync(
-                Guid empresaId,
-                Guid ticketId,
-                Guid usuarioId,
-                bool esAdministrador,
-                IFormFile archivo,
-                CancellationToken ct = default);
+        Task<ArchivoAdjuntoResultadoDto> SubirInternoAsync(
+            Guid empresaId,
+            Guid ticketId,
+            Guid usuarioId,
+            bool esAdministrador,
+            bool esAdministradorGlobal,
+            IFormFile archivo,
+            CancellationToken ct = default);
 
         // ==========================================
         // CARGA PUBLICA
