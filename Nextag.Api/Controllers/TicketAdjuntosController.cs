@@ -37,14 +37,13 @@ namespace Nextag.Api.Controllers
         // ==========================================
 
         [HttpPost]
-        [Authorize(
-    Roles = "ADMINISTRADOR,ADMIN_EMPRESA,OPERADOR")]
+        [Authorize(Roles = "ADMINISTRADOR,ADMIN_EMPRESA,OPERADOR")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Subir(
-    Guid ticketId,
-    [FromForm] IFormFile archivo,
-    [FromForm] bool? visibleSolicitante,
-    CancellationToken ct)
+            Guid ticketId,
+            IFormFile archivo,
+            [FromForm] bool? visibleSolicitante,
+            CancellationToken ct)
         {
             var empresaId = HttpContext.GetEmpresaId();
 
