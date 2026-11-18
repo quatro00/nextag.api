@@ -129,6 +129,22 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                         "Error al procesar evento {EventoId}",
                         eventoId);
 
+                    // ==========================================
+                    // LIMPIAR ENTIDADES PENDIENTES
+                    // ==========================================
+
+                    // La transacción del evento ya terminó
+                    // al salir de ProcesarEventoAsync.
+                    //
+                    // Limpiamos el ChangeTracker para evitar
+                    // que un evento fallido afecte al siguiente.
+
+                    context.ChangeTracker.Clear();
+
+                    // ==========================================
+                    // REGISTRAR ERROR
+                    // ==========================================
+
                     try
                     {
                         await RegistrarErrorAsync(
@@ -390,8 +406,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                         evento.UsuarioCreacion
                 };
 
-                context.Notificacions.Add(
-                    notificacion);
+                context.Notificacions.Add(notificacion);
 
                 totalNotificaciones++;
 
