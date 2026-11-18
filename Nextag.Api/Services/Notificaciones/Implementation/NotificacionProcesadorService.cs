@@ -17,7 +17,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         private readonly ILogger<NotificacionProcesadorService>
             logger;
 
-        private const int MinutosBloqueo = 5;
+        private const int MinutosBloqueo = 15;
 
         public NotificacionProcesadorService(
             NextagContext context,
@@ -44,6 +44,12 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             {
                 FechaInicio = DateTime.UtcNow
             };
+
+            // ======================================
+            // RECUPERAR EVENTOS AGOTADOS
+            // ======================================
+
+            await RecuperarEventosAgotadosAsync(ct);
 
             var ahora = DateTime.UtcNow;
 
@@ -166,6 +172,51 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             resultado.FechaFin = DateTime.UtcNow;
 
             return resultado;
+        }
+
+        private async Task<int> RecuperarEventosAgotadosAsync(CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var limiteBloqueo =
+                ahora.AddMinutes(-MinutosBloqueo);
+
+            var actualizados = await context
+                .NotificacionEventoPendientes
+                .Where(x =>
+                    x.Estado == "PROCESANDO" &&
+                    x.Intentos >= x.MaxIntentos &&
+                    x.FechaBloqueo < limiteBloqueo)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(
+                            x => x.Estado,
+                            "ERROR")
+                        .SetProperty(
+                            x => x.UltimoError,
+                            "El procesamiento fue interrumpido y se agotaron los intentos.")
+                        .SetProperty(
+                            x => x.FechaBloqueo,
+                            (DateTime?)null)
+                        .SetProperty(
+                            x => x.BloqueoToken,
+                            (Guid?)null)
+                        .SetProperty(
+                            x => x.FechaProximoIntento,
+                            (DateTime?)null)
+                        .SetProperty(
+                            x => x.FechaActualizacion,
+                            ahora),
+                    ct);
+
+            if (actualizados > 0)
+            {
+                logger.LogWarning(
+                    "Se recuperaron {Cantidad} eventos con intentos agotados.",
+                    actualizados);
+            }
+
+            return actualizados;
         }
 
         // ==========================================
@@ -473,7 +524,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                     setters => setters
                         .SetProperty(
                             x => x.Estado,
-                            "COMPLETADO")
+                            "PROCESADO")
                         .SetProperty(
                             x => x.FechaProcesamiento,
                             DateTime.UtcNow)
