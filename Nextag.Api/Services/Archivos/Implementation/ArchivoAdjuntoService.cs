@@ -535,6 +535,7 @@ namespace Nextag.Api.Services.Archivos.Implementation
             bool esAdministrador,
             bool esAdministradorGlobal,
             IFormFile archivo,
+            bool visibleSolicitante,
             CancellationToken ct = default)
         {
             if (empresaId == Guid.Empty ||
@@ -659,12 +660,13 @@ namespace Nextag.Api.Services.Archivos.Implementation
             }
 
             return await GuardarArchivoAsync(
-                empresaId,
-                ticketId,
-                usuarioId,
-                archivo,
-                null,
-                ct);
+            empresaId,
+            ticketId,
+            usuarioId,
+            archivo,
+            null,
+            visibleSolicitante,
+            ct);
         }
 
         // ==========================================
@@ -696,12 +698,21 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     "La autorización para adjuntar archivos no es válida.");
             }
 
+            // ==========================================
+            // ARCHIVOS PUBLICOS
+            // ==========================================
+
+            // Los archivos subidos desde el flujo
+            // público de NFC/QR siempre serán visibles
+            // para el solicitante.
+
             return await GuardarArchivoAsync(
                 autorizacion.EmpresaId,
                 ticketId,
                 null,
                 archivo,
                 autorizacion.Id,
+                true,
                 ct);
         }
 
@@ -710,13 +721,14 @@ namespace Nextag.Api.Services.Archivos.Implementation
         // ==========================================
 
         private async Task<ArchivoAdjuntoResultadoDto>
-            GuardarArchivoAsync(
-                Guid empresaId,
-                Guid ticketId,
-                Guid? usuarioId,
-                IFormFile archivo,
-                Guid? autorizacionId,
-                CancellationToken ct)
+        GuardarArchivoAsync(
+            Guid empresaId,
+            Guid ticketId,
+            Guid? usuarioId,
+            IFormFile archivo,
+            Guid? autorizacionId,
+            bool visibleSolicitante,
+            CancellationToken ct)
         {
             // ======================================
             // VALIDAR ARCHIVO
@@ -846,7 +858,7 @@ namespace Nextag.Api.Services.Archivos.Implementation
 
                 HashSha256 = hash,
 
-                VisibleSolicitante = true,
+                VisibleSolicitante = visibleSolicitante,
 
                 EstadoAlmacenamiento = "PENDIENTE",
 

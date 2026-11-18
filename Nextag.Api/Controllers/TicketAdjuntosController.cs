@@ -38,15 +38,31 @@ namespace Nextag.Api.Controllers
 
         [HttpPost]
         [Authorize(
-            Roles = "ADMINISTRADOR,ADMIN_EMPRESA,OPERADOR")]
+    Roles = "ADMINISTRADOR,ADMIN_EMPRESA,OPERADOR")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Subir(
-            Guid ticketId,
-            IFormFile archivo,
-            CancellationToken ct)
+    Guid ticketId,
+    [FromForm] IFormFile archivo,
+    [FromForm] bool? visibleSolicitante,
+    CancellationToken ct)
         {
             var empresaId = HttpContext.GetEmpresaId();
+
             var usuarioId = User.GetUsuarioId();
+
+            // ======================================
+            // VISIBILIDAD PREDETERMINADA
+            // ======================================
+
+            // Si un cliente anterior no envía
+            // visibleSolicitante, conservamos
+            // el comportamiento existente.
+
+            var visible = visibleSolicitante ?? true;
+
+            // ======================================
+            // GUARDAR ARCHIVO
+            // ======================================
 
             var resultado = await service.SubirInternoAsync(
                 empresaId,
@@ -55,6 +71,7 @@ namespace Nextag.Api.Controllers
                 EsAdministrador(),
                 EsAdministradorGlobal(),
                 archivo,
+                visible,
                 ct);
 
             if (!resultado.Success)

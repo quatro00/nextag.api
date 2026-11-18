@@ -15,6 +15,7 @@ namespace Nextag.Api.Services.Archivos.Interface
             bool esAdministrador,
             bool esAdministradorGlobal,
             IFormFile archivo,
+            bool visibleSolicitante,
             CancellationToken ct = default);
 
         // ==========================================
