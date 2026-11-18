@@ -27,5 +27,39 @@ namespace Nextag.Api.Services.Archivos.Interface
                 string token,
                 IFormFile archivo,
                 CancellationToken ct = default);
+        // ==========================================
+        // LISTAR ADJUNTOS
+        // ==========================================
+
+        Task<List<ArchivoAdjuntoDto>> ListarAsync(
+            Guid empresaId,
+            Guid ticketId,
+            Guid usuarioId,
+            bool esAdministrador,
+            CancellationToken ct = default);
+
+        // ==========================================
+        // DESCARGAR ADJUNTO
+        // ==========================================
+
+        Task<ArchivoDescargaDto?> DescargarAsync(
+            Guid empresaId,
+            Guid ticketId,
+            Guid archivoId,
+            Guid usuarioId,
+            bool esAdministrador,
+            CancellationToken ct = default);
+
+        // ==========================================
+        // ELIMINAR ADJUNTO
+        // ==========================================
+
+        Task<bool> EliminarAsync(
+            Guid empresaId,
+            Guid ticketId,
+            Guid archivoId,
+            Guid usuarioId,
+            bool esAdministrador,
+            CancellationToken ct = default);
     }
 }
