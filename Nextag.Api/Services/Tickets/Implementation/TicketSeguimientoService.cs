@@ -5,6 +5,7 @@ using Nextag.Api.Models.Dto;
 using Nextag.Api.Services.Tickets.Interface;
 using Nextag.Api.Models.Domain;
 using Nextag.Api.Services.Notificaciones.Interface;
+using System.Data;
 
 namespace Nextag.Api.Services.Tickets.Implementation
 {
@@ -283,20 +284,39 @@ namespace Nextag.Api.Services.Tickets.Implementation
             }
 
             // ======================================
-            // VALIDAR TICKET
+            // TRANSACCION
             // ======================================
 
+            // Utilizamos el mismo nivel de aislamiento
+            // que TicketAsignacionService y
+            // TicketEstadoService.
+
+            await using var transaction =
+                await context.Database.BeginTransactionAsync(
+                    IsolationLevel.Serializable,
+                    ct);
+
+            // ======================================
+            // BLOQUEAR TICKET
+            // ======================================
+
+            // El bloqueo impide que otro proceso
+            // cambie el estado o la asignación
+            // mientras se registra el comentario.
+
             var ticket = await context.Tickets
+                .FromSqlInterpolated($"""
+        SELECT *
+        FROM dbo.Ticket WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = {ticketId}
+          AND EmpresaId = {empresaId}
+        """)
                 .AsNoTracking()
-                .Where(x =>
-                    x.Id == ticketId &&
-                    x.EmpresaId == empresaId)
-                .Select(x => new
-                {
-                    x.Id,
-                    EstadoClave = x.EstadoTicket.Clave
-                })
                 .FirstOrDefaultAsync(ct);
+
+            // ======================================
+            // VALIDAR EXISTENCIA
+            // ======================================
 
             if (ticket == null)
             {
@@ -305,7 +325,22 @@ namespace Nextag.Api.Services.Tickets.Implementation
                 );
             }
 
-            if (ticket.EstadoClave is "CERRADO" or "CANCELADO")
+            // ======================================
+            // OBTENER ESTADO ACTUAL
+            // ======================================
+
+            var estadoClave = await context.EstadoTickets
+                .AsNoTracking()
+                .Where(x =>
+                    x.Id == ticket.EstadoTicketId)
+                .Select(x => x.Clave)
+                .FirstOrDefaultAsync(ct);
+
+            // ======================================
+            // VALIDAR ESTADO
+            // ======================================
+
+            if (estadoClave is "CERRADO" or "CANCELADO")
             {
                 return ServiceResult<TicketSeguimientoDto>.Fail(
                     "No se pueden agregar comentarios a tickets cerrados o cancelados."
@@ -397,13 +432,6 @@ namespace Nextag.Api.Services.Tickets.Implementation
 
                 FechaCreacion = ahora
             };
-
-            // ======================================
-            // TRANSACCION
-            // ======================================
-
-            await using var transaction =
-                await context.Database.BeginTransactionAsync(ct);
 
             // ======================================
             // REGISTRAR SEGUIMIENTO
