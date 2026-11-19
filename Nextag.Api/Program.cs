@@ -149,6 +149,7 @@ builder.Services.AddScoped<INotificacionEventoService, NotificacionEventoService
 builder.Services.AddScoped<INotificacionDestinatarioService, NotificacionDestinatarioService>();
 builder.Services.AddScoped<INotificacionInternaService, NotificacionInternaService>();
 builder.Services.AddScoped<INotificacionProcesadorService, NotificacionProcesadorService>();
+builder.Services.AddScoped<INotificacionPreferenciaService, NotificacionPreferenciaService>();
 
 
 // ==========================================
