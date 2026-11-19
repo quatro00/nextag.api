@@ -331,6 +331,20 @@ namespace Nextag.Api.Services.Tickets.Implementation
             }
 
             // ======================================
+            // ASIGNACION RELACIONADA
+            // ======================================
+
+            var asignacionNotificacionId = await context
+                .TicketAsignacions
+                .AsNoTracking()
+                .Where(x =>
+                    x.EmpresaId == empresaId &&
+                    x.TicketId == ticketId &&
+                    x.FechaFin == null)
+                .Select(x => (Guid?)x.Id)
+                .FirstOrDefaultAsync(ct);
+
+            // ======================================
             // OBTENER AUTOR
             // ======================================
 
@@ -411,23 +425,26 @@ namespace Nextag.Api.Services.Tickets.Implementation
             if (tipo == TIPO_COMENTARIO)
             {
                 await ticketNotificacionService.RegistrarAsync(
-                    empresaId,
-                    ticketId,
-                    "TICKET_COMENTARIO",
-                    seguimiento.Id,
-                    usuarioId,
-                    new
-                    {
-                        seguimientoId = seguimiento.Id,
+                empresaId,
+                ticketId,
+                "TICKET_COMENTARIO",
+                seguimiento.Id,
+                usuarioId,
+                new
+                {
+                    seguimientoId = seguimiento.Id,
 
-                        autorUsuarioId = usuarioId,
+                    autorUsuarioId = usuarioId,
 
-                        autorExterno = false,
+                    autorExterno = false,
 
-                        visibleSolicitante =
-                            seguimiento.VisibleSolicitante
-                    },
-                    ct);
+                    visibleSolicitante =
+                        seguimiento.VisibleSolicitante,
+
+                    asignacionId =
+                        asignacionNotificacionId
+                },
+                ct);
             }
 
             // ======================================
