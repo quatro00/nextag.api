@@ -24,5 +24,14 @@ namespace Nextag.Api.Models.Dto.Tickets.Publicos
         [Required]
         [StringLength(5000, MinimumLength = 10)]
         public string Descripcion { get; set; } = string.Empty;
+
+        // ==========================================
+        // PREFERENCIAS DE NOTIFICACION
+        // ==========================================
+
+        public bool RecibirCorreo { get; set; }
+        public bool RecibirWhatsapp { get; set; }
+        public bool ConsentimientoWhatsapp { get; set; }
+        public string? VersionAvisoWhatsapp { get; set; }
     }
 }

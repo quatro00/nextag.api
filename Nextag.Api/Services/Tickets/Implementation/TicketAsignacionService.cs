@@ -3,6 +3,7 @@ using Nextag.Api.Data;
 using Nextag.Api.Models.Domain;
 using Nextag.Api.Models.Dto;
 using Nextag.Api.Models.Dto.Tickets;
+using Nextag.Api.Services.Notificaciones.Interface;
 using Nextag.Api.Services.Tickets.Interface;
 using System.Data;
 
@@ -11,10 +12,12 @@ namespace Nextag.Api.Services.Tickets.Implementation
     public class TicketAsignacionService : ITicketAsignacionService
     {
         private readonly NextagContext context;
+        private readonly ITicketNotificacionService ticketNotificacionService;
 
-        public TicketAsignacionService(NextagContext context)
+        public TicketAsignacionService(NextagContext context, ITicketNotificacionService ticketNotificacionService)
         {
             this.context = context;
+            this.ticketNotificacionService = ticketNotificacionService;
         }
 
         // ==========================================
@@ -436,7 +439,50 @@ namespace Nextag.Api.Services.Tickets.Implementation
                     });
             }
 
+            // ======================================
+            // GUARDAR ASIGNACION
+            // ======================================
+
             await context.SaveChangesAsync(ct);
+
+            // ======================================
+            // DETERMINAR EVENTO
+            // ======================================
+
+            var eventoClave = esReasignacion
+                ? "TICKET_REASIGNADO"
+                : "TICKET_ASIGNADO";
+
+            // ======================================
+            // REGISTRAR EVENTO
+            // ======================================
+
+            await ticketNotificacionService.RegistrarAsync(
+                empresaId,
+                ticketId,
+                eventoClave,
+                asignacion.Id,
+                usuarioId,
+                new
+                {
+                    asignacionId = asignacion.Id,
+
+                    equipoSoporteId =
+                        asignacion.EquipoSoporteId,
+
+                    usuarioTecnicoId =
+                        asignacion.UsuarioTecnicoId,
+
+                    asignacionAnteriorId =
+                        asignacionAnterior?.Id,
+
+                    esReasignacion
+                },
+                ct);
+
+            // ======================================
+            // CONFIRMAR TRANSACCION
+            // ======================================
 
             await transaction.CommitAsync(ct);
 

@@ -4,20 +4,26 @@ using Nextag.Api.Models.Dto.Tickets;
 using Nextag.Api.Models.Dto;
 using Nextag.Api.Services.Tickets.Interface;
 using Nextag.Api.Models.Domain;
+using Nextag.Api.Services.Notificaciones.Interface;
 
 namespace Nextag.Api.Services.Tickets.Implementation
 {
     public class TicketSeguimientoService : ITicketSeguimientoService
     {
         private readonly NextagContext context;
+        private readonly ITicketNotificacionService ticketNotificacionService;
 
         private const string TIPO_COMENTARIO = "COMENTARIO";
         private const string TIPO_NOTA_INTERNA = "NOTA_INTERNA";
         private const string TIPO_SOLUCION = "SOLUCION";
 
-        public TicketSeguimientoService(NextagContext context)
+        public TicketSeguimientoService(
+    NextagContext context,
+    ITicketNotificacionService ticketNotificacionService)
         {
             this.context = context;
+
+            this.ticketNotificacionService = ticketNotificacionService;
         }
 
 
@@ -378,9 +384,57 @@ namespace Nextag.Api.Services.Tickets.Implementation
                 FechaCreacion = ahora
             };
 
+            // ======================================
+            // TRANSACCION
+            // ======================================
+
+            await using var transaction =
+                await context.Database.BeginTransactionAsync(ct);
+
+            // ======================================
+            // REGISTRAR SEGUIMIENTO
+            // ======================================
+
             context.TicketSeguimientos.Add(seguimiento);
 
             await context.SaveChangesAsync(ct);
+
+            // ======================================
+            // REGISTRAR NOTIFICACION
+            // ======================================
+
+            // En esta primera versión notificaremos
+            // únicamente comentarios visibles al solicitante.
+            //
+            // Las notas internas no generan este evento.
+
+            if (tipo == TIPO_COMENTARIO)
+            {
+                await ticketNotificacionService.RegistrarAsync(
+                    empresaId,
+                    ticketId,
+                    "TICKET_COMENTARIO",
+                    seguimiento.Id,
+                    usuarioId,
+                    new
+                    {
+                        seguimientoId = seguimiento.Id,
+
+                        autorUsuarioId = usuarioId,
+
+                        autorExterno = false,
+
+                        visibleSolicitante =
+                            seguimiento.VisibleSolicitante
+                    },
+                    ct);
+            }
+
+            // ======================================
+            // CONFIRMAR
+            // ======================================
+
+            await transaction.CommitAsync(ct);
 
             // ======================================
             // RESPUESTA

@@ -7,6 +7,7 @@ using Nextag.Api.Data;
 using Nextag.Api.Models.Domain;
 using Nextag.Api.Models.Dto;
 using Nextag.Api.Models.Dto.Tickets;
+using Nextag.Api.Services.Notificaciones.Interface;
 using Nextag.Api.Services.Tickets.Interface;
 
 namespace Nextag.Api.Services.Tickets.Implementation;
@@ -15,13 +16,16 @@ public class TicketService : ITicketService
 {
     private readonly NextagContext context;
     private readonly ITicketFolioService folioService;
+    private readonly ITicketNotificacionService ticketNotificacionService;
 
     public TicketService(
         NextagContext context,
-        ITicketFolioService folioService)
+        ITicketFolioService folioService,
+        ITicketNotificacionService ticketNotificacionService)
     {
         this.context = context;
         this.folioService = folioService;
+        this.ticketNotificacionService = ticketNotificacionService;
     }
 
     // ==========================================
@@ -542,7 +546,33 @@ public class TicketService : ITicketService
         // Se guardan contador, ticket e historial
         // dentro de la misma transacción.
 
+        // ======================================
+        // GUARDAR TICKET E HISTORIAL
+        // ======================================
+
         await context.SaveChangesAsync(ct);
+
+        // ======================================
+        // REGISTRAR EVENTO
+        // ======================================
+
+        await ticketNotificacionService.RegistrarAsync(
+            empresaId,
+            ticket.Id,
+            "TICKET_CREADO",
+            ticket.Id,
+            usuarioId,
+            new
+            {
+                ticketId = ticket.Id,
+                folio = ticket.Folio,
+                origen = ticket.Origen
+            },
+            ct);
+
+        // ======================================
+        // CONFIRMAR TRANSACCION
+        // ======================================
 
         await transaction.CommitAsync(ct);
 

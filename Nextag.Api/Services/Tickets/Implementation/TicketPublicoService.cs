@@ -2,6 +2,7 @@
 using Nextag.Api.Data;
 using Nextag.Api.Models.Domain;
 using Nextag.Api.Models.Dto.Tickets.Publicos;
+using Nextag.Api.Services.Notificaciones.Interface;
 using Nextag.Api.Services.Tickets.Interface;
 using System.ComponentModel.DataAnnotations;
 
@@ -10,18 +11,16 @@ namespace Nextag.Api.Services.Tickets.Implementation
     public class TicketPublicoService : ITicketPublicoService
     {
         private readonly NextagContext context;
-
         private readonly ITicketFolioService folioService;
-
         private readonly ITicketAdjuntoTokenService adjuntoTokenService;
+        private readonly ITicketNotificacionService ticketNotificacionService;
 
-        public TicketPublicoService(NextagContext context, ITicketFolioService folioService, ITicketAdjuntoTokenService adjuntoTokenService)
+        public TicketPublicoService(NextagContext context, ITicketFolioService folioService, ITicketAdjuntoTokenService adjuntoTokenService, ITicketNotificacionService ticketNotificacionService)
         {
             this.context = context;
-
             this.folioService = folioService;
-
             this.adjuntoTokenService = adjuntoTokenService;
+            this.ticketNotificacionService = ticketNotificacionService;
         }
 
         // ==========================================
@@ -251,6 +250,37 @@ namespace Nextag.Api.Services.Tickets.Implementation
             }
 
             // ======================================
+            // VALIDAR PREFERENCIAS
+            // ======================================
+
+            if (dto.RecibirCorreo && correo == null)
+            {
+                throw new ValidationException(
+                    "Debes proporcionar un correo para recibir notificaciones.");
+            }
+
+            if (dto.RecibirWhatsapp)
+            {
+                if (telefono == null)
+                {
+                    throw new ValidationException(
+                        "Debes proporcionar un teléfono para recibir WhatsApp.");
+                }
+
+                if (!dto.ConsentimientoWhatsapp)
+                {
+                    throw new ValidationException(
+                        "Debes aceptar el consentimiento de WhatsApp.");
+                }
+
+                if (dto.VersionAvisoWhatsapp != "v1")
+                {
+                    throw new ValidationException(
+                        "La versión del aviso de WhatsApp no está vigente.");
+                }
+            }
+
+            // ======================================
             // CATEGORIA
             // ======================================
 
@@ -368,6 +398,48 @@ namespace Nextag.Api.Services.Tickets.Implementation
             context.Tickets.Add(ticket);
 
             // ======================================
+            // PREFERENCIAS DE NOTIFICACION
+            // ======================================
+
+            var preferencias = new TicketNotificacionPreferencium
+            {
+                Id = Guid.NewGuid(),
+
+                EmpresaId = empresaId,
+
+                TicketId = ticket.Id,
+
+                RecibirCorreo = dto.RecibirCorreo,
+
+                RecibirWhatsapp = dto.RecibirWhatsapp,
+
+                ConsentimientoWhatsapp =
+                    dto.RecibirWhatsapp &&
+                    dto.ConsentimientoWhatsapp,
+
+                FechaConsentimiento =
+                    dto.RecibirWhatsapp &&
+                    dto.ConsentimientoWhatsapp
+                        ? ahora
+                        : null,
+
+                OrigenConsentimiento =
+                    dto.RecibirWhatsapp
+                        ? "TICKET_PUBLICO"
+                        : null,
+
+                VersionAviso =
+                    dto.RecibirWhatsapp
+                        ? "v1"
+                        : null,
+
+                FechaCreacion = ahora
+            };
+
+            context.TicketNotificacionPreferencia.Add(
+                preferencias);
+
+            // ======================================
             // HISTORIAL INICIAL
             // ======================================
 
@@ -404,7 +476,34 @@ namespace Nextag.Api.Services.Tickets.Implementation
             // GUARDAR
             // ======================================
 
+            // ======================================
+            // GUARDAR TICKET
+            // ======================================
+
             await context.SaveChangesAsync(ct);
+
+            // ======================================
+            // REGISTRAR NOTIFICACION
+            // ======================================
+
+            await ticketNotificacionService.RegistrarAsync(
+                empresaId,
+                ticket.Id,
+                "TICKET_CREADO",
+                ticket.Id,
+                null,
+                new
+                {
+                    ticketId = ticket.Id,
+                    folio = ticket.Folio,
+                    origen = "PUBLICO",
+                    autorExterno = true
+                },
+                ct);
+
+            // ======================================
+            // CONFIRMAR TRANSACCION
+            // ======================================
 
             await transaction.CommitAsync(ct);
 

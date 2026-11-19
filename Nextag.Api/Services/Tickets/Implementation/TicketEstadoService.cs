@@ -5,6 +5,7 @@ using Nextag.Api.Services.Tickets.Interface;
 using Microsoft.EntityFrameworkCore;
 using Nextag.Api.Models.Domain;
 using System.Data;
+using Nextag.Api.Services.Notificaciones.Interface;
 
 namespace Nextag.Api.Services.Tickets.Implementation
 {
@@ -12,13 +13,30 @@ namespace Nextag.Api.Services.Tickets.Implementation
     {
         private readonly NextagContext context;
         private readonly ITicketService ticketService;
+        private readonly ITicketNotificacionService ticketNotificacionService;
 
         public TicketEstadoService(
             NextagContext context,
-            ITicketService ticketService)
+            ITicketService ticketService,
+            ITicketNotificacionService ticketNotificacionService)
         {
             this.context = context;
             this.ticketService = ticketService;
+            this.ticketNotificacionService = ticketNotificacionService;
+        }
+
+        private static string ObtenerEventoNotificacion(string estadoDestino)
+        {
+            return estadoDestino switch
+            {
+                "RESUELTO" => "TICKET_RESUELTO",
+
+                "CERRADO" => "TICKET_CERRADO",
+
+                "CANCELADO" => "TICKET_CANCELADO",
+
+                _ => "TICKET_ESTADO_CAMBIADO"
+            };
         }
 
         // ==========================================
@@ -455,7 +473,42 @@ namespace Nextag.Api.Services.Tickets.Implementation
             // GUARDAR
             // ======================================
 
+            // ======================================
+            // GUARDAR CAMBIO DE ESTADO
+            // ======================================
+
             await context.SaveChangesAsync(ct);
+
+            // ======================================
+            // REGISTRAR EVENTO
+            // ======================================
+
+            var eventoClave = ObtenerEventoNotificacion(
+                estadoDestinoClave);
+
+            await ticketNotificacionService.RegistrarAsync(
+                empresaId,
+                ticketId,
+                eventoClave,
+                historial.Id,
+                usuarioId,
+                new
+                {
+                    estadoAnteriorId,
+
+                    estadoNuevoId = estadoDestino.Id,
+
+                    estadoAnteriorClave = estadoActual,
+
+                    estadoNuevoClave = estadoDestinoClave,
+
+                    historialId = historial.Id
+                },
+                ct);
+
+            // ======================================
+            // CONFIRMAR
+            // ======================================
 
             await transaction.CommitAsync(ct);
 
