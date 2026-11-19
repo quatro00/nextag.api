@@ -10,6 +10,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         : INotificacionPreferenciaService
     {
         private readonly NextagContext context;
+        private const string VersionAvisoWhatsapp = "v1";
 
         public NotificacionPreferenciaService(
             NextagContext context)
@@ -243,16 +244,10 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                         "Es necesario aceptar el consentimiento de WhatsApp.");
                 }
 
-                if (string.IsNullOrWhiteSpace(dto.VersionAviso))
+                if (dto.VersionAviso != VersionAvisoWhatsapp)
                 {
                     throw new ArgumentException(
-                        "Debe indicarse la versión del aviso de WhatsApp.");
-                }
-
-                if (dto.VersionAviso.Length > 30)
-                {
-                    throw new ArgumentException(
-                        "La versión del aviso no puede exceder 30 caracteres.");
+                        "La versión del aviso de WhatsApp no está vigente.");
                 }
             }
 
