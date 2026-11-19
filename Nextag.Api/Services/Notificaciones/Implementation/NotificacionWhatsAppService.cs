@@ -194,20 +194,61 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
 
             if (!response.IsSuccessStatusCode)
             {
-                // No registramos el cuerpo completo
-                // para evitar exponer información
-                // sensible de la solicitud.
+                // ==================================
+                // OBTENER CODIGO DE ERROR META
+                // ==================================
+
+                int? codigoMeta = null;
+
+                try
+                {
+                    using var errorDocumento =
+                        JsonDocument.Parse(contenido);
+
+                    var errorRaiz =
+                        errorDocumento.RootElement;
+
+                    if (
+                        errorRaiz.TryGetProperty(
+                            "error",
+                            out var errorMeta) &&
+                        errorMeta.ValueKind == JsonValueKind.Object &&
+                        errorMeta.TryGetProperty(
+                            "code",
+                            out var codigo) &&
+                        codigo.ValueKind == JsonValueKind.Number &&
+                        codigo.TryGetInt32(out var valorCodigo)
+                    )
+                    {
+                        codigoMeta = valorCodigo;
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Una respuesta de error puede no
+                    // contener JSON válido.
+                    //
+                    // Conservamos el código HTTP.
+                }
+
+                // ==================================
+                // REGISTRAR ERROR
+                // ==================================
 
                 logger.LogWarning(
-                    "Meta rechazó la solicitud WhatsApp. " +
-                    "HTTP: {StatusCode}",
-                    (int)response.StatusCode);
+                    "Meta rechazó WhatsApp. " +
+                    "HTTP: {StatusCode}. " +
+                    "Código Meta: {CodigoMeta}",
+                    (int)response.StatusCode,
+                    codigoMeta);
 
-                throw new HttpRequestException(
-                    $"Meta rechazó el envío de WhatsApp. " +
-                    $"HTTP {(int)response.StatusCode}.",
-                    null,
-                    response.StatusCode);
+                // ==================================
+                // GENERAR EXCEPCION CONTROLADA
+                // ==================================
+
+                throw new MetaWhatsAppException(
+                    response.StatusCode,
+                    codigoMeta);
             }
 
             // ======================================

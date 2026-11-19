@@ -10,6 +10,12 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
     public class NotificacionWhatsAppProcesadorService
         : INotificacionWhatsAppProcesadorService
     {
+        // ==========================================
+        // CONFIGURACION DE BLOQUEOS
+        // ==========================================
+
+        private const int MinutosBloqueo = 15;
+
         private readonly NextagContext context;
 
         private readonly INotificacionWhatsAppService
@@ -30,6 +36,93 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             this.whatsappService = whatsappService;
             this.options = options.Value;
             this.logger = logger;
+        }
+
+        // ==========================================
+        // RECUPERAR ENVIOS INTERRUMPIDOS
+        // ==========================================
+
+        private async Task<int> RecuperarInterrumpidosAsync(
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var limiteBloqueo =
+                ahora.AddMinutes(-MinutosBloqueo);
+
+            // ======================================
+            // IDENTIFICAR BLOQUEOS EXPIRADOS
+            // ======================================
+
+            var actualizados = await context
+                .NotificacionEnvios
+                .Where(x =>
+                    x.Canal == "WHATSAPP" &&
+                    x.Estado == "PROCESANDO" &&
+                    x.FechaBloqueo < limiteBloqueo)
+                .ExecuteUpdateAsync(
+                    setters => setters
+
+                        // ==================================
+                        // ERROR DEFINITIVO
+                        // ==================================
+
+                        .SetProperty(
+                            x => x.Estado,
+                            "ERROR")
+
+                        // ==================================
+                        // AGOTAR INTENTOS
+                        // ==================================
+
+                        .SetProperty(
+                            x => x.Intentos,
+                            x => x.MaxIntentos)
+
+                        // ==================================
+                        // ELIMINAR PROXIMO INTENTO
+                        // ==================================
+
+                        .SetProperty(
+                            x => x.FechaProximoIntento,
+                            (DateTime?)null)
+
+                        // ==================================
+                        // LIBERAR BLOQUEO
+                        // ==================================
+
+                        .SetProperty(
+                            x => x.FechaBloqueo,
+                            (DateTime?)null)
+
+                        .SetProperty(
+                            x => x.BloqueoToken,
+                            (Guid?)null)
+
+                        // ==================================
+                        // REGISTRAR MOTIVO
+                        // ==================================
+
+                        .SetProperty(
+                            x => x.UltimoError,
+                            "RESULTADO_INCIERTO: " +
+                            "El procesamiento fue interrumpido. " +
+                            "No se reenviará automáticamente.")
+
+                        .SetProperty(
+                            x => x.FechaActualizacion,
+                            ahora),
+                    ct);
+
+            if (actualizados > 0)
+            {
+                logger.LogWarning(
+                    "Se recuperaron {Cantidad} envíos WhatsApp " +
+                    "interrumpidos con resultado incierto.",
+                    actualizados);
+            }
+
+            return actualizados;
         }
 
         // ==========================================
@@ -61,6 +154,12 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             }
 
             // ======================================
+            // RECUPERAR ENVIOS INTERRUMPIDOS
+            // ======================================
+
+            await RecuperarInterrumpidosAsync(ct);
+
+            // ======================================
             // CONSULTAR PENDIENTES
             // ======================================
 
@@ -71,11 +170,36 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 .AsNoTracking()
                 .Where(x =>
                     x.Canal == "WHATSAPP" &&
-                    x.Estado == "PENDIENTE" &&
+
                     x.Intentos < x.MaxIntentos &&
+
                     (
-                        x.FechaProximoIntento == null ||
-                        x.FechaProximoIntento <= ahora
+                        // ==================================
+                        // ENVIOS NUEVOS
+                        // ==================================
+
+                        (
+                            x.Estado == "PENDIENTE" &&
+
+                            (
+                                x.FechaProximoIntento == null ||
+                                x.FechaProximoIntento <= ahora
+                            )
+                        )
+
+                        ||
+
+                        // ==================================
+                        // REINTENTOS PROGRAMADOS
+                        // ==================================
+
+                        (
+                            x.Estado == "ERROR" &&
+
+                            x.FechaProximoIntento != null &&
+
+                            x.FechaProximoIntento <= ahora
+                        )
                     ))
                 .OrderBy(x => x.FechaCreacion)
                 .Select(x => x.Id)
@@ -174,30 +298,62 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 .NotificacionEnvios
                 .Where(x =>
                     x.Id == envioId &&
+
                     x.Canal == "WHATSAPP" &&
-                    x.Estado == "PENDIENTE" &&
+
                     x.Intentos < x.MaxIntentos &&
+
                     (
-                        x.FechaProximoIntento == null ||
-                        x.FechaProximoIntento <= ahora
+                        // ==================================
+                        // PENDIENTE
+                        // ==================================
+
+                        (
+                            x.Estado == "PENDIENTE" &&
+
+                            (
+                                x.FechaProximoIntento == null ||
+                                x.FechaProximoIntento <= ahora
+                            )
+                        )
+
+                        ||
+
+                        // ==================================
+                        // ERROR CON REINTENTO
+                        // ==================================
+
+                        (
+                            x.Estado == "ERROR" &&
+
+                            x.FechaProximoIntento != null &&
+
+                            x.FechaProximoIntento <= ahora
+                        )
                     ))
                 .ExecuteUpdateAsync(
                     setters => setters
+
                         .SetProperty(
                             x => x.Estado,
                             "PROCESANDO")
+
                         .SetProperty(
                             x => x.BloqueoToken,
                             token)
+
                         .SetProperty(
                             x => x.FechaBloqueo,
                             ahora)
+
                         .SetProperty(
                             x => x.Intentos,
                             x => x.Intentos + 1)
+
                         .SetProperty(
                             x => x.FechaUltimoIntento,
                             ahora)
+
                         .SetProperty(
                             x => x.FechaActualizacion,
                             ahora),
@@ -314,6 +470,8 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             // VERIFICAR BLOQUEO
             // ======================================
 
+            var ahora = DateTime.UtcNow;
+
             var bloqueoVigente = await context
                 .NotificacionEnvios
                 .AsNoTracking()
@@ -321,8 +479,16 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                     x.Id == envioId &&
                     x.Canal == "WHATSAPP" &&
                     x.Estado == "PROCESANDO" &&
-                    x.BloqueoToken == token,
+                    x.BloqueoToken == token &&
+                    x.FechaBloqueo >
+                        ahora.AddMinutes(-MinutosBloqueo),
                     ct);
+
+            if (!bloqueoVigente)
+            {
+                throw new InvalidOperationException(
+                    "El bloqueo del envío expiró.");
+            }
 
             if (!bloqueoVigente)
             {
@@ -520,9 +686,109 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             Exception ex,
             CancellationToken ct)
         {
+            // ======================================
+            // CONSULTAR ENVIO
+            // ======================================
+
+            var envio = await context
+                .NotificacionEnvios
+                .AsNoTracking()
+                .Where(x =>
+                    x.Id == envioId &&
+                    x.Canal == "WHATSAPP" &&
+                    x.Estado == "PROCESANDO" &&
+                    x.BloqueoToken == token)
+                .Select(x => new
+                {
+                    x.Intentos,
+                    x.MaxIntentos
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (envio == null)
+            {
+                return;
+            }
+
             var ahora = DateTime.UtcNow;
 
-            var mensaje = ex.Message;
+            // ======================================
+            // CLASIFICAR ERROR
+            // ======================================
+
+            // Únicamente se permite reintentar cuando
+            // Meta confirmó el rechazo por límite
+            // temporal de envío.
+
+            var permiteReintento =
+                ex is MetaWhatsAppException metaException &&
+                metaException.PermiteReintento;
+
+            // ======================================
+            // VALIDAR INTENTOS
+            // ======================================
+
+            var agotado =
+                envio.Intentos >= envio.MaxIntentos;
+
+            var reintentar =
+                permiteReintento && !agotado;
+
+            // ======================================
+            // BACKOFF EXPONENCIAL
+            // ======================================
+
+            DateTime? proximoIntento = null;
+
+            if (reintentar)
+            {
+                var minutos = Math.Min(
+                    60,
+                    (int)Math.Pow(
+                        2,
+                        Math.Min(envio.Intentos, 6)));
+
+                proximoIntento =
+                    ahora.AddMinutes(minutos);
+            }
+
+            // ======================================
+            // DETERMINAR INTENTOS FINALES
+            // ======================================
+
+            // Los errores definitivos o inciertos
+            // agotan los intentos para impedir
+            // reenvíos automáticos.
+
+            var intentosFinales = reintentar
+                ? envio.Intentos
+                : envio.MaxIntentos;
+
+            // ======================================
+            // CONSTRUIR ERROR
+            // ======================================
+
+            string prefijo;
+
+            if (reintentar)
+            {
+                prefijo = "REINTENTO_PROGRAMADO";
+            }
+            else if (permiteReintento && agotado)
+            {
+                prefijo = "INTENTOS_AGOTADOS";
+            }
+            else if (ex is MetaWhatsAppException)
+            {
+                prefijo = "RECHAZADO_META";
+            }
+            else
+            {
+                prefijo = "RESULTADO_INCIERTO";
+            }
+
+            var mensaje =
+                $"{prefijo}: {ex.Message}";
 
             if (mensaje.Length > 1000)
             {
@@ -530,14 +796,8 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             }
 
             // ======================================
-            // NO REINTENTAR AUTOMATICAMENTE
+            // ACTUALIZAR ENVIO
             // ======================================
-
-            // Los reintentos y la clasificación
-            // de errores se implementarán en 8L-F.
-            //
-            // Por ahora evitamos duplicados ante
-            // resultados inciertos de Meta.
 
             await context.NotificacionEnvios
                 .Where(x =>
@@ -547,28 +807,56 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                     x.BloqueoToken == token)
                 .ExecuteUpdateAsync(
                     setters => setters
+
                         .SetProperty(
                             x => x.Estado,
                             "ERROR")
+
+                        .SetProperty(
+                            x => x.Intentos,
+                            intentosFinales)
+
+                        .SetProperty(
+                            x => x.FechaProximoIntento,
+                            proximoIntento)
+
                         .SetProperty(
                             x => x.UltimoError,
                             mensaje)
-                        .SetProperty(
-                            x => x.FechaProximoIntento,
-                            (DateTime?)null)
-                        .SetProperty(
-                            x => x.Intentos,
-                            x => x.MaxIntentos)
+
                         .SetProperty(
                             x => x.FechaBloqueo,
                             (DateTime?)null)
+
                         .SetProperty(
                             x => x.BloqueoToken,
                             (Guid?)null)
+
                         .SetProperty(
                             x => x.FechaActualizacion,
                             ahora),
                     ct);
+
+            // ======================================
+            // LOG
+            // ======================================
+
+            if (reintentar)
+            {
+                logger.LogWarning(
+                    "WhatsApp {EnvioId} tendrá otro intento " +
+                    "en {FechaProximoIntento}.",
+                    envioId,
+                    proximoIntento);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "WhatsApp {EnvioId} terminó sin " +
+                    "reintentos automáticos. Motivo: {Motivo}",
+                    envioId,
+                    prefijo);
+            }
         }
     }
 }
