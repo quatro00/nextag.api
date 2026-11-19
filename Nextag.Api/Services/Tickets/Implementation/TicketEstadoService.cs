@@ -346,6 +346,20 @@ namespace Nextag.Api.Services.Tickets.Implementation
             }
 
             // ======================================
+            // ASIGNACION RELACIONADA CON EL EVENTO
+            // ======================================
+
+            var asignacionNotificacionId = await context
+                .TicketAsignacions
+                .AsNoTracking()
+                .Where(x =>
+                    x.EmpresaId == empresaId &&
+                    x.TicketId == ticketId &&
+                    x.FechaFin == null)
+                .Select(x => (Guid?)x.Id)
+                .FirstOrDefaultAsync(ct);
+
+            // ======================================
             // FECHAS Y DATOS
             // ======================================
 
@@ -487,24 +501,38 @@ namespace Nextag.Api.Services.Tickets.Implementation
                 estadoDestinoClave);
 
             await ticketNotificacionService.RegistrarAsync(
-                empresaId,
-                ticketId,
-                eventoClave,
-                historial.Id,
-                usuarioId,
-                new
-                {
-                    estadoAnteriorId,
+            empresaId,
+            ticketId,
+            eventoClave,
+            historial.Id,
+            usuarioId,
+            new
+            {
+                // ==================================
+                // ESTADOS
+                // ==================================
 
-                    estadoNuevoId = estadoDestino.Id,
+                estadoAnteriorId,
 
-                    estadoAnteriorClave = estadoActual,
+                estadoNuevoId = estadoDestino.Id,
 
-                    estadoNuevoClave = estadoDestinoClave,
+                estadoAnteriorClave = estadoActual,
 
-                    historialId = historial.Id
-                },
-                ct);
+                estadoNuevoClave = estadoDestinoClave,
+
+                // ==================================
+                // HISTORIAL
+                // ==================================
+
+                historialId = historial.Id,
+
+                // ==================================
+                // ASIGNACION DEL EVENTO
+                // ==================================
+
+                asignacionId = asignacionNotificacionId
+            },
+            ct);
 
             // ======================================
             // CONFIRMAR

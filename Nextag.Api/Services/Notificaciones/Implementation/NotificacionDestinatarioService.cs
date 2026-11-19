@@ -67,6 +67,21 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             var metadata = LeerMetadata(evento.PayloadJson);
 
             // ======================================
+            // VALIDAR ASIGNACION EN EVENTOS
+            // ======================================
+
+            if (
+                evento.EventoClave is
+                    "TICKET_ASIGNADO" or "TICKET_REASIGNADO"
+                &&
+                !metadata.AsignacionId.HasValue
+            )
+            {
+                throw new InvalidOperationException(
+                    "El evento de asignación no contiene el identificador de la asignación.");
+            }
+
+            // ======================================
             // SOLICITANTE
             // ======================================
 
@@ -96,11 +111,12 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             if (DebeNotificarSoporte(evento.EventoClave))
             {
                 var soporte =
-                    await ObtenerSoporteAsync(
-                        evento.EmpresaId,
-                        ticket.Id,
-                        evento.EventoId,
-                        ct);
+                await ObtenerSoporteAsync(
+                    evento.EmpresaId,
+                    ticket.Id,
+                    evento.EventoId,
+                    metadata.AsignacionId,
+                    ct);
 
                 destinatarios.AddRange(soporte);
             }
@@ -294,31 +310,49 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         }
 
         private async Task<List<NotificacionDestinatarioDto>>
-            ObtenerSoporteAsync(
-                Guid empresaId,
-                Guid ticketId,
-                int eventoId,
-                CancellationToken ct)
+    ObtenerSoporteAsync(
+        Guid empresaId,
+        Guid ticketId,
+        int eventoId,
+        Guid? asignacionId,
+        CancellationToken ct)
         {
             var resultado =
                 new List<NotificacionDestinatarioDto>();
 
             // ======================================
-            // ASIGNACION VIGENTE
+            // VALIDAR IDENTIFICADOR
+            // ======================================
+
+            // Si el evento ocurrió sin una asignación,
+            // no debemos utilizar la asignación actual.
+            //
+            // De hacerlo, estaríamos notificando sobre
+            // un evento histórico a otro destinatario.
+
+            if (!asignacionId.HasValue)
+            {
+                return resultado;
+            }
+
+            // ======================================
+            // CONSULTAR ASIGNACION DEL EVENTO
             // ======================================
 
             var asignacion = await context
                 .TicketAsignacions
                 .AsNoTracking()
-                .Where(x =>
+                .FirstOrDefaultAsync(x =>
+                    x.Id == asignacionId.Value &&
                     x.EmpresaId == empresaId &&
-                    x.TicketId == ticketId &&
-                    x.FechaFin == null)
-                .OrderByDescending(x => x.FechaAsignacion)
-                .FirstOrDefaultAsync(ct);
+                    x.TicketId == ticketId,
+                    ct);
 
             if (asignacion == null)
-                return resultado;
+            {
+                throw new InvalidOperationException(
+                    "No se encontró la asignación relacionada con el evento.");
+            }
 
             // ======================================
             // TECNICO ESPECIFICO
@@ -334,7 +368,9 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                         ct);
 
                 if (tecnico != null)
+                {
                     resultado.Add(tecnico);
+                }
 
                 return resultado;
             }
@@ -365,7 +401,9 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                         ct);
 
                 if (integrante != null)
+                {
                     resultado.Add(integrante);
+                }
             }
 
             return resultado;
@@ -492,6 +530,10 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             public bool AutorExterno { get; set; }
 
             public bool? VisibleSolicitante { get; set; }
+
+            // Identificador de la asignación
+            // relacionada con el evento.
+            public Guid? AsignacionId { get; set; }
         }
 
         private static EventoMetadata LeerMetadata(
@@ -509,6 +551,25 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
 
             if (raiz.ValueKind != JsonValueKind.Object)
                 return resultado;
+
+            // ======================================
+            // ASIGNACION DEL EVENTO
+            // ======================================
+
+            if (raiz.TryGetProperty(
+                "asignacionId",
+                out var asignacion))
+            {
+                if (
+                    asignacion.ValueKind == JsonValueKind.String &&
+                    Guid.TryParse(
+                        asignacion.GetString(),
+                        out var asignacionId)
+                )
+                {
+                    resultado.AsignacionId = asignacionId;
+                }
+            }
 
             if (raiz.TryGetProperty(
                 "autorUsuarioId",
