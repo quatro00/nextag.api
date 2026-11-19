@@ -157,12 +157,21 @@ builder.Services.AddScoped<ITicketNotificacionService, TicketNotificacionService
 // CONFIGURACION SMTP
 // ==========================================
 
-builder.Services.Configure<SmtpOptions>(
-    builder.Configuration.GetSection(
-        SmtpOptions.SectionName));
-
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.AddScoped<INotificacionSmtpService, NotificacionSmtpService>();
 builder.Services.AddScoped<INotificacionCorreoService, NotificacionCorreoService>();
+
+// ==========================================
+// CONFIGURACION WHATSAPP
+// ==========================================
+
+builder.Services.Configure<WhatsAppOptions>(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
+
+// ==========================================
+// HTTP CLIENT META
+// ==========================================
+
+builder.Services.AddHttpClient<INotificacionWhatsAppService, NotificacionWhatsAppService>(client => { client.Timeout = TimeSpan.FromSeconds(30); });
 
 // ==========================================
 // ALMACENAMIENTO DE ARCHIVOS
@@ -283,4 +292,35 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// ==========================================
+// PRUEBA TEMPORAL WHATSAPP
+// SOLO DEVELOPMENT
+// ==========================================
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapPost(
+        "/api/dev/whatsapp/prueba",
+        async (
+            WhatsAppPruebaRequest request,
+            INotificacionWhatsAppService whatsappService,
+            CancellationToken ct) =>
+        {
+            var resultado =
+                await whatsappService
+                    .EnviarPlantillaAsync(
+                        request.Telefono,
+                        "hello_world",
+                        "en_US",
+                        null,
+                        ct);
+
+            return Results.Ok(resultado);
+        })
+        .RequireAuthorization();
+}
+
 app.Run();
+
+public sealed record WhatsAppPruebaRequest(
+    string Telefono);
