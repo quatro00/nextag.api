@@ -174,6 +174,12 @@ builder.Services.Configure<WhatsAppOptions>(builder.Configuration.GetSection(Wha
 builder.Services.AddHttpClient<INotificacionWhatsAppService, NotificacionWhatsAppService>(client => { client.Timeout = TimeSpan.FromSeconds(30); });
 
 // ==========================================
+// PROCESADOR WHATSAPP
+// ==========================================
+
+builder.Services.AddScoped<INotificacionWhatsAppProcesadorService, NotificacionWhatsAppProcesadorService>();
+
+// ==========================================
 // ALMACENAMIENTO DE ARCHIVOS
 // ==========================================
 
@@ -299,6 +305,26 @@ app.MapControllers();
 
 if (app.Environment.IsDevelopment())
 {
+    // ==========================================
+    // PROCESAR WHATSAPP PENDIENTES
+    // SOLO DEVELOPMENT
+    // ==========================================
+
+    app.MapPost(
+        "/api/dev/whatsapp/procesar",
+        async (
+            INotificacionWhatsAppProcesadorService procesador,
+            CancellationToken ct) =>
+        {
+            var resultado =
+                await procesador.ProcesarPendientesAsync(
+                    20,
+                    ct);
+
+            return Results.Ok(resultado);
+        })
+        .RequireAuthorization();
+
     app.MapPost(
         "/api/dev/whatsapp/prueba",
         async (
