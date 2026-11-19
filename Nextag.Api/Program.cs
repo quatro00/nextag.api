@@ -150,6 +150,18 @@ builder.Services.AddScoped<INotificacionDestinatarioService, NotificacionDestina
 builder.Services.AddScoped<INotificacionInternaService, NotificacionInternaService>();
 builder.Services.AddScoped<INotificacionProcesadorService, NotificacionProcesadorService>();
 
+
+// ==========================================
+// CONFIGURACION SMTP
+// ==========================================
+
+builder.Services.Configure<SmtpOptions>(
+    builder.Configuration.GetSection(
+        SmtpOptions.SectionName));
+
+builder.Services.AddScoped<INotificacionSmtpService, NotificacionSmtpService>();
+builder.Services.AddScoped<INotificacionCorreoService, NotificacionCorreoService>();
+
 // ==========================================
 // ALMACENAMIENTO DE ARCHIVOS
 // ==========================================
