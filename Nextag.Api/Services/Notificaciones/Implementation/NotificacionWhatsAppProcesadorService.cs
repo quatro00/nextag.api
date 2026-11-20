@@ -490,12 +490,6 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                     "El bloqueo del envío expiró.");
             }
 
-            if (!bloqueoVigente)
-            {
-                throw new InvalidOperationException(
-                    "El bloqueo del envío ya no está vigente.");
-            }
-
             // ======================================
             // ENVIAR A META
             // ======================================
