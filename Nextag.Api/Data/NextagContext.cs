@@ -116,6 +116,8 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<UsuarioNotificacionPreferencium> UsuarioNotificacionPreferencia { get; set; }
 
+    public virtual DbSet<WhatsAppWebhookEvento> WhatsAppWebhookEventos { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Activo>(entity =>
@@ -1828,6 +1830,49 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => d.UsuarioId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_UsuarioNotifPref_Usuario");
+        });
+
+        modelBuilder.Entity<WhatsAppWebhookEvento>(entity =>
+        {
+            entity.ToTable("WhatsAppWebhookEvento");
+
+            entity.HasIndex(e => new { e.Estado, e.FechaProximoIntento, e.FechaCreacion }, "IX_WhatsAppWebhookEvento_Cola");
+
+            entity.HasIndex(e => new { e.IdentificadorProveedor, e.FechaEventoMeta }, "IX_WhatsAppWebhookEvento_IdentificadorProveedor");
+
+            entity.HasIndex(e => new { e.NotificacionEnvioId, e.FechaCreacion }, "IX_WhatsAppWebhookEvento_NotificacionEnvio").HasFilter("([NotificacionEnvioId] IS NOT NULL)");
+
+            entity.HasIndex(e => e.ClaveIdempotencia, "UQ_WhatsAppWebhookEvento_ClaveIdempotencia").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.ClaveIdempotencia)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('PENDIENTE')");
+            entity.Property(e => e.EstadoMeta)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaBloqueo).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaEventoMeta).HasPrecision(3);
+            entity.Property(e => e.FechaProcesamiento).HasPrecision(3);
+            entity.Property(e => e.FechaProximoIntento).HasPrecision(3);
+            entity.Property(e => e.IdentificadorProveedor).HasMaxLength(200);
+            entity.Property(e => e.MaxIntentos).HasDefaultValueSql("((10))");
+            entity.Property(e => e.PhoneNumberId)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.UltimoError).HasMaxLength(1000);
+            entity.Property(e => e.WhatsAppBusinessAccountId)
+                .HasMaxLength(50)
+                .IsUnicode(false);
         });
 
         OnModelCreatingPartial(modelBuilder);
