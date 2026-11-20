@@ -168,6 +168,18 @@ builder.Services.AddScoped<INotificacionCorreoService, NotificacionCorreoService
 builder.Services.Configure<WhatsAppOptions>(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
 
 // ==========================================
+// CONFIGURACION WEBHOOK WHATSAPP
+// ==========================================
+
+builder.Services.Configure<WhatsAppWebhookOptions>(builder.Configuration.GetSection(WhatsAppWebhookOptions.SectionName));
+
+// ==========================================
+// ALMACENAMIENTO DE ARCHIVOS
+// ==========================================
+
+builder.Services.Configure<ArchivoStorageOptions>(builder.Configuration.GetSection(ArchivoStorageOptions.SectionName));
+
+// ==========================================
 // HTTP CLIENT META
 // ==========================================
 
@@ -192,12 +204,10 @@ builder.Services.AddSingleton<ITelefonoWhatsAppService, TelefonoWhatsAppService>
 builder.Services.AddScoped<INotificacionWhatsAppAutorizacionService, NotificacionWhatsAppAutorizacionService>();
 
 // ==========================================
-// ALMACENAMIENTO DE ARCHIVOS
+// PROCESAMIENTO WEBHOOK WHATSAPP
 // ==========================================
 
-builder.Services.Configure<ArchivoStorageOptions>(
-    builder.Configuration.GetSection(
-        ArchivoStorageOptions.SectionName));
+builder.Services.AddScoped<IWhatsAppWebhookService, WhatsAppWebhookService>();
 
 var proveedorArchivos =
     builder.Configuration[
