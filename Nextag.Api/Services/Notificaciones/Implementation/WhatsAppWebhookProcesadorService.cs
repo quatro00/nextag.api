@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Nextag.Api.Data;
+using Nextag.Api.Models.Configuration;
 using Nextag.Api.Models.Dto.Notificaciones;
 using Nextag.Api.Services.Notificaciones.Interface;
 using System.Text.Json;
@@ -11,6 +13,8 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
     {
         private readonly NextagContext context;
 
+        private readonly WhatsAppOptions options;
+
         private readonly ILogger<WhatsAppWebhookProcesadorService>
             logger;
 
@@ -18,9 +22,11 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
 
         public WhatsAppWebhookProcesadorService(
             NextagContext context,
+            IOptions<WhatsAppOptions> options,
             ILogger<WhatsAppWebhookProcesadorService> logger)
         {
             this.context = context;
+            this.options = options.Value;
             this.logger = logger;
         }
 
@@ -104,16 +110,33 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 try
                 {
                     var procesado = await ProcesarEventoAsync(
-                        eventoId,
-                        token,
-                        ct);
+                    eventoId,
+                    token,
+                    ct);
 
-                    if (procesado)
+                    // ======================================
+                    // EVENTO PROCESADO
+                    // ======================================
+
+                    if (procesado.Procesado)
                     {
                         resultado.Procesados++;
+
+                        // ==================================
+                        // NOTIFICACION ACTUALIZADA
+                        // ==================================
+
+                        if (procesado.Actualizado)
+                        {
+                            resultado.Actualizados++;
+                        }
                     }
                     else
                     {
+                        // ======================================
+                        // EVENTO REPROGRAMADO
+                        // ======================================
+
                         resultado.Reprogramados++;
                     }
                 }
@@ -262,31 +285,68 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         // PROCESAR EVENTO
         // ==========================================
 
-        private async Task<bool> ProcesarEventoAsync(
+        private async Task<(bool Procesado, bool Actualizado)>
+        ProcesarEventoAsync(
             Guid eventoId,
             Guid token,
             CancellationToken ct)
         {
             var evento = await context
-                .WhatsAppWebhookEventos
-                .AsNoTracking()
-                .Where(x =>
-                    x.Id == eventoId &&
-                    x.Estado == "PROCESANDO" &&
-                    x.BloqueoToken == token)
-                .Select(x => new
-                {
-                    x.Id,
-                    x.IdentificadorProveedor,
-                    x.EstadoMeta,
-                    x.PayloadJson
-                })
-                .FirstOrDefaultAsync(ct);
+            .WhatsAppWebhookEventos
+            .AsNoTracking()
+            .Where(x =>
+                x.Id == eventoId &&
+                x.Estado == "PROCESANDO" &&
+                x.BloqueoToken == token)
+            .Select(x => new
+            {
+                x.Id,
+
+                x.WhatsAppBusinessAccountId,
+
+                x.PhoneNumberId,
+
+                x.IdentificadorProveedor,
+
+                x.EstadoMeta,
+
+                x.PayloadJson
+            })
+            .FirstOrDefaultAsync(ct);
 
             if (evento == null)
             {
                 throw new InvalidOperationException(
                     "El webhook ya no pertenece a esta ejecución.");
+            }
+
+            // ==========================================
+            // VALIDAR CUENTA META
+            // ==========================================
+
+            if (
+                string.IsNullOrWhiteSpace(
+                    options.WhatsAppBusinessAccountId) ||
+                string.IsNullOrWhiteSpace(
+                    options.PhoneNumberId)
+            )
+            {
+                throw new InvalidOperationException(
+                    "La cuenta de WhatsApp no está configurada.");
+            }
+
+            // ==========================================
+            // VALIDAR PROCEDENCIA DEL WEBHOOK
+            // ==========================================
+
+            if (
+                evento.WhatsAppBusinessAccountId !=
+                    options.WhatsAppBusinessAccountId ||
+                evento.PhoneNumberId != options.PhoneNumberId
+            )
+            {
+                throw new InvalidOperationException(
+                    "El webhook no pertenece a la cuenta WhatsApp configurada.");
             }
 
             // ======================================
@@ -326,7 +386,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                     "AUN_NO_ASOCIADO: El Message ID todavía no existe en NotificacionEnvio.",
                     ct);
 
-                return false;
+                return (false, false);
             }
 
             if (envios.Count > 1)
@@ -400,13 +460,14 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             // ACTUALIZAR NOTIFICACION
             // ======================================
 
-            // Solo se permiten transiciones
-            // hacia estados posteriores.
+            // Solo permitimos transiciones hacia
+            // estados posteriores.
             //
-            // Los eventos repetidos o atrasados
+            // Los eventos duplicados o atrasados
             // no modifican NotificacionEnvio.
 
-            await context.NotificacionEnvios
+            var actualizados = await context
+                .NotificacionEnvios
                 .Where(x =>
                     x.Id == envio.Id &&
                     x.EmpresaId == envio.EmpresaId &&
@@ -415,11 +476,21 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                     x.IdentificadorProveedor ==
                         evento.IdentificadorProveedor &&
                     (
+                        // ==================================
+                        // ENTREGADO
+                        // ==================================
+
                         (
                             estadoNextag == "ENTREGADO" &&
                             x.Estado == "ENVIADO"
                         )
+
                         ||
+
+                        // ==================================
+                        // LEIDO
+                        // ==================================
+
                         (
                             estadoNextag == "LEIDO" &&
                             (
@@ -427,7 +498,13 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                                 x.Estado == "ENTREGADO"
                             )
                         )
+
                         ||
+
+                        // ==================================
+                        // FALLIDO
+                        // ==================================
+
                         (
                             estadoNextag == "FALLIDO" &&
                             x.Estado == "ENVIADO"
@@ -495,7 +572,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
 
             await transaccion.CommitAsync(ct);
 
-            return true;
+            return (true, actualizados > 0);
         }
 
         // ==========================================
