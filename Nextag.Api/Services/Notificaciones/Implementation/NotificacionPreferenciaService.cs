@@ -11,11 +11,14 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
     {
         private readonly NextagContext context;
         private const string VersionAvisoWhatsapp = "v1";
+        private readonly ITelefonoWhatsAppService telefonoService;
 
         public NotificacionPreferenciaService(
-            NextagContext context)
+            NextagContext context,
+            ITelefonoWhatsAppService telefonoService)
         {
             this.context = context;
+            this.telefonoService = telefonoService;
         }
 
         // ==========================================
@@ -98,9 +101,15 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             var correoDisponible =
                 !string.IsNullOrWhiteSpace(usuario.Email);
 
+            var telefono =
+                !string.IsNullOrWhiteSpace(usuario.Celular)
+                    ? usuario.Celular
+                    : usuario.Telefono;
+
             var whatsappDisponible =
-                !string.IsNullOrWhiteSpace(
-                    usuario.Celular ?? usuario.Telefono);
+                TieneTelefonoWhatsappValido(
+                    telefono,
+                    usuario.CodigoPais);
 
             // ======================================
             // GENERAR RESULTADO
@@ -226,9 +235,15 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             // VALIDAR WHATSAPP
             // ======================================
 
+            var telefono =
+                !string.IsNullOrWhiteSpace(usuario.Celular)
+                    ? usuario.Celular
+                    : usuario.Telefono;
+
             var whatsappDisponible =
-                !string.IsNullOrWhiteSpace(
-                    usuario.Celular ?? usuario.Telefono);
+                TieneTelefonoWhatsappValido(
+                    telefono,
+                    usuario.CodigoPais);
 
             if (dto.Whatsapp)
             {
@@ -469,6 +484,29 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
 
                 preferencia.UsuarioModificacion =
                     usuarioId;
+            }
+        }
+
+        private bool TieneTelefonoWhatsappValido(
+            string? telefono,
+            string? codigoPais)
+        {
+            if (string.IsNullOrWhiteSpace(telefono))
+            {
+                return false;
+            }
+
+            try
+            {
+                telefonoService.Normalizar(
+                    telefono,
+                    codigoPais);
+
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
             }
         }
     }

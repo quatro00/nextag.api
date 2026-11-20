@@ -16,16 +16,18 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         private readonly WhatsAppOptions options;
 
         private readonly ILogger<NotificacionWhatsAppService> logger;
+        private readonly ITelefonoWhatsAppService telefonoService;
 
         public NotificacionWhatsAppService(
             HttpClient httpClient,
             IOptions<WhatsAppOptions> options,
+            ITelefonoWhatsAppService telefonoService,
             ILogger<NotificacionWhatsAppService> logger)
         {
             this.httpClient = httpClient;
 
             this.options = options.Value;
-
+            this.telefonoService = telefonoService;
             this.logger = logger;
         }
 
@@ -51,8 +53,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             // VALIDAR DESTINATARIO
             // ======================================
 
-            var numeroDestino =
-                ValidarTelefono(telefono);
+            var numeroDestino = telefonoService.Normalizar(telefono);
 
             // ======================================
             // VALIDAR PLANTILLA
@@ -375,46 +376,6 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 throw new InvalidOperationException(
                     "La versión de Graph API no es válida.");
             }
-        }
-
-        // ==========================================
-        // VALIDAR TELEFONO
-        // ==========================================
-
-        private static string ValidarTelefono(
-            string telefono)
-        {
-            if (string.IsNullOrWhiteSpace(telefono))
-            {
-                throw new ArgumentException(
-                    "El teléfono es obligatorio.",
-                    nameof(telefono));
-            }
-
-            var numero = telefono.Trim();
-
-            // En 8L-G implementaremos un
-            // normalizador internacional completo.
-            //
-            // Por ahora aceptamos números que
-            // ya contienen su código de país.
-
-            if (numero.StartsWith("+"))
-            {
-                numero = numero[1..];
-            }
-
-            if (!Regex.IsMatch(
-                numero,
-                @"^[1-9][0-9]{7,14}$"))
-            {
-                throw new ArgumentException(
-                    "El teléfono debe incluir el código " +
-                    "de país y contener entre 8 y 15 dígitos.",
-                    nameof(telefono));
-            }
-
-            return numero;
         }
     }
 }

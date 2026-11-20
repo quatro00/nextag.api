@@ -18,22 +18,21 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
 
         private readonly NextagContext context;
 
-        private readonly INotificacionWhatsAppService
-            whatsappService;
-
+        private readonly INotificacionWhatsAppService whatsappService;
+        private readonly INotificacionWhatsAppAutorizacionService autorizacionService;
         private readonly WhatsAppOptions options;
-
-        private readonly ILogger<NotificacionWhatsAppProcesadorService>
-            logger;
+        private readonly ILogger<NotificacionWhatsAppProcesadorService> logger;
 
         public NotificacionWhatsAppProcesadorService(
             NextagContext context,
             INotificacionWhatsAppService whatsappService,
+             INotificacionWhatsAppAutorizacionService autorizacionService,
             IOptions<WhatsAppOptions> options,
             ILogger<NotificacionWhatsAppProcesadorService> logger)
         {
             this.context = context;
             this.whatsappService = whatsappService;
+            this.autorizacionService = autorizacionService;
             this.options = options.Value;
             this.logger = logger;
         }
@@ -233,12 +232,19 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
 
                 try
                 {
-                    await ProcesarEnvioAsync(
+                    var enviado = await ProcesarEnvioAsync(
                         envioId,
                         token,
                         ct);
 
-                    resultado.Enviados++;
+                    if (enviado)
+                    {
+                        resultado.Enviados++;
+                    }
+                    else
+                    {
+                        resultado.Omitidos++;
+                    }
                 }
                 catch (OperationCanceledException)
                     when (ct.IsCancellationRequested)
@@ -366,7 +372,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         // PROCESAR ENVIO
         // ==========================================
 
-        private async Task ProcesarEnvioAsync(
+        private async Task<bool> ProcesarEnvioAsync(
             Guid envioId,
             Guid token,
             CancellationToken ct)
@@ -491,12 +497,38 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             }
 
             // ======================================
+            // VALIDAR AUTORIZACION VIGENTE
+            // ======================================
+
+            var autorizacion = await autorizacionService
+                .ValidarEnvioAsync(
+                    envioId,
+                    envio.EmpresaId,
+                    ct);
+
+            // ======================================
+            // OMITIR ENVIO NO AUTORIZADO
+            // ======================================
+
+            if (!autorizacion.Autorizado)
+            {
+                await OmitirEnvioAsync(
+                envioId,
+                token,
+                autorizacion.Motivo ??
+                    "El destinatario no está autorizado.",
+                ct);
+
+                return false;
+            }
+
+            // ======================================
             // ENVIAR A META
             // ======================================
 
             var respuesta = await whatsappService
                 .EnviarPlantillaAsync(
-                    envio.Destino,
+                    autorizacion.TelefonoNormalizado!,
                     plantilla,
                     options.DefaultLanguage,
                     parametros,
@@ -567,6 +599,8 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             logger.LogInformation(
                 "WhatsApp aceptado por Meta. EnvioId: {EnvioId}",
                 envioId);
+
+            return true;
         }
 
         // ==========================================
@@ -668,6 +702,69 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 folio,
                 descripcion
             };
+        }
+
+        // ==========================================
+        // OMITIR ENVIO NO AUTORIZADO
+        // ==========================================
+
+        private async Task OmitirEnvioAsync(
+            Guid envioId,
+            Guid token,
+            string motivo,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var mensaje = $"OMITIDO: {motivo}";
+
+            if (mensaje.Length > 1000)
+            {
+                mensaje = mensaje[..1000];
+            }
+
+            var actualizados = await context
+                .NotificacionEnvios
+                .Where(x =>
+                    x.Id == envioId &&
+                    x.Canal == "WHATSAPP" &&
+                    x.Estado == "PROCESANDO" &&
+                    x.BloqueoToken == token)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(
+                            x => x.Estado,
+                            "ERROR")
+                        .SetProperty(
+                            x => x.Intentos,
+                            x => x.MaxIntentos)
+                        .SetProperty(
+                            x => x.UltimoError,
+                            mensaje)
+                        .SetProperty(
+                            x => x.FechaProximoIntento,
+                            (DateTime?)null)
+                        .SetProperty(
+                            x => x.FechaBloqueo,
+                            (DateTime?)null)
+                        .SetProperty(
+                            x => x.BloqueoToken,
+                            (Guid?)null)
+                        .SetProperty(
+                            x => x.FechaActualizacion,
+                            ahora),
+                    ct);
+
+            if (actualizados != 1)
+            {
+                throw new InvalidOperationException(
+                    "No fue posible registrar la omisión WhatsApp.");
+            }
+
+            logger.LogInformation(
+                "Envío WhatsApp {EnvioId} omitido. Motivo: {Motivo}",
+                envioId,
+                motivo);
         }
 
         // ==========================================

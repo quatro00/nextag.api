@@ -180,6 +180,18 @@ builder.Services.AddHttpClient<INotificacionWhatsAppService, NotificacionWhatsAp
 builder.Services.AddScoped<INotificacionWhatsAppProcesadorService, NotificacionWhatsAppProcesadorService>();
 
 // ==========================================
+// NORMALIZACION DE TELEFONOS WHATSAPP
+// ==========================================
+
+builder.Services.AddSingleton<ITelefonoWhatsAppService, TelefonoWhatsAppService>();
+
+// ==========================================
+// AUTORIZACION DE ENVIOS WHATSAPP
+// ==========================================
+
+builder.Services.AddScoped<INotificacionWhatsAppAutorizacionService, NotificacionWhatsAppAutorizacionService>();
+
+// ==========================================
 // ALMACENAMIENTO DE ARCHIVOS
 // ==========================================
 
