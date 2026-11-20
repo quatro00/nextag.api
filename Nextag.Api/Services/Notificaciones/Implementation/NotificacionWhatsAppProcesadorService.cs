@@ -526,9 +526,12 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             // ENVIAR A META
             // ======================================
 
+            var telefonoDestino =
+                "+" + autorizacion.TelefonoNormalizado!;
+
             var respuesta = await whatsappService
                 .EnviarPlantillaAsync(
-                    autorizacion.TelefonoNormalizado!,
+                    telefonoDestino,
                     plantilla,
                     options.DefaultLanguage,
                     parametros,

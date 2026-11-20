@@ -513,7 +513,9 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 Correo = usuario.Email,
 
                 Telefono =
-                    usuario.Celular ?? usuario.Telefono,
+                !string.IsNullOrWhiteSpace(usuario.Celular)
+                    ? usuario.Celular
+                    : usuario.Telefono,
 
                 NotificacionInterna = recibirInterna,
 
