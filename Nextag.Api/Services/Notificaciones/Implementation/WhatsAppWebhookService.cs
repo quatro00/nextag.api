@@ -275,11 +275,6 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                         identificador &&
                     (
                         (
-                            estadoNextag == "ENVIADO" &&
-                            x.Estado == "ENVIADO"
-                        )
-                        ||
-                        (
                             estadoNextag == "ENTREGADO" &&
                             x.Estado == "ENVIADO"
                         )
@@ -325,13 +320,12 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         // ==========================================
 
         private static bool PuedeActualizar(
-            string actual,
-            string nuevo)
+        string actual,
+        string nuevo)
         {
             return nuevo switch
             {
-                "ENVIADO" =>
-                    actual == "ENVIADO",
+                "ENVIADO" => false,
 
                 "ENTREGADO" =>
                     actual == "ENVIADO",
