@@ -2,7 +2,7 @@
 {
     public interface IWhatsAppWebhookService
     {
-        Task ProcesarAsync(
+        Task<int> AlmacenarAsync(
             string payload,
             CancellationToken ct = default);
     }

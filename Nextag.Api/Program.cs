@@ -209,6 +209,12 @@ builder.Services.AddScoped<INotificacionWhatsAppAutorizacionService, Notificacio
 
 builder.Services.AddScoped<IWhatsAppWebhookService, WhatsAppWebhookService>();
 
+// ==========================================
+// PROCESADOR DE WEBHOOKS WHATSAPP
+// ==========================================
+
+builder.Services.AddScoped<IWhatsAppWebhookProcesadorService, WhatsAppWebhookProcesadorService>();
+
 var proveedorArchivos =
     builder.Configuration[
         "ArchivoStorage:Provider"];
@@ -327,6 +333,26 @@ app.MapControllers();
 
 if (app.Environment.IsDevelopment())
 {
+    // ==========================================
+    // PROCESAR WEBHOOKS PENDIENTES
+    // SOLO DEVELOPMENT
+    // ==========================================
+
+    app.MapPost(
+        "/api/dev/whatsapp/webhooks/procesar",
+        async (
+            IWhatsAppWebhookProcesadorService procesador,
+            CancellationToken ct) =>
+        {
+            var resultado =
+                await procesador.ProcesarPendientesAsync(
+                    20,
+                    ct);
+
+            return Results.Ok(resultado);
+        })
+        .RequireAuthorization();
+
     // ==========================================
     // PROCESAR WHATSAPP PENDIENTES
     // SOLO DEVELOPMENT

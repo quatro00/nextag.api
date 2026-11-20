@@ -172,11 +172,20 @@ namespace Nextag.Api.Controllers
 
             var payload = Encoding.UTF8.GetString(bytes);
 
+            // ======================================
+            // ALMACENAR WEBHOOK
+            // ======================================
+
             try
             {
-                await webhookService.ProcesarAsync(
-                    payload,
-                    ct);
+                var almacenados = await webhookService
+                    .AlmacenarAsync(payload, ct);
+
+                logger.LogInformation(
+                    "Webhook Meta recibido. Nuevos eventos: {Cantidad}",
+                    almacenados);
+
+                return Ok();
             }
             catch (System.Text.Json.JsonException)
             {
@@ -185,11 +194,6 @@ namespace Nextag.Api.Controllers
 
                 return BadRequest();
             }
-
-            // No devolvemos información de los
-            // mensajes procesados al proveedor.
-
-            return Ok();
         }
     }
 }

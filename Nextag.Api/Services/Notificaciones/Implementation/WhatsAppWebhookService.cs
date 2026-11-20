@@ -1,21 +1,24 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nextag.Api.Data;
 using Nextag.Api.Models.Configuration;
+using Nextag.Api.Models.Domain;
 using Nextag.Api.Services.Notificaciones.Interface;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Nextag.Api.Services.Notificaciones.Implementation
 {
     public class WhatsAppWebhookService
-        : IWhatsAppWebhookService
+         : IWhatsAppWebhookService
     {
         private readonly NextagContext context;
 
         private readonly WhatsAppOptions options;
 
-        private readonly ILogger<WhatsAppWebhookService>
-            logger;
+        private readonly ILogger<WhatsAppWebhookService> logger;
 
         public WhatsAppWebhookService(
             NextagContext context,
@@ -28,99 +31,60 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
         }
 
         // ==========================================
-        // PROCESAR WEBHOOK
+        // ALMACENAR WEBHOOK
         // ==========================================
 
-        public async Task ProcesarAsync(
+        public async Task<int> AlmacenarAsync(
             string payload,
             CancellationToken ct = default)
         {
-            using var documento =
-                JsonDocument.Parse(payload);
+            using var documento = JsonDocument.Parse(payload);
 
             var raiz = documento.RootElement;
 
-            // ======================================
-            // VALIDAR TIPO DE OBJETO
-            // ======================================
-
-            if (!raiz.TryGetProperty(
-                "object",
-                out var tipoObjeto))
-            {
-                return;
-            }
-
-            if (tipoObjeto.GetString() !=
+            if (ObtenerTexto(raiz, "object") !=
                 "whatsapp_business_account")
             {
-                return;
+                return 0;
             }
 
-            // ======================================
-            // RECORRER ENTRADAS
-            // ======================================
-
-            if (!raiz.TryGetProperty(
-                "entry",
-                out var entradas) ||
+            if (!raiz.TryGetProperty("entry", out var entradas) ||
                 entradas.ValueKind != JsonValueKind.Array)
             {
-                return;
+                return 0;
             }
+
+            var almacenados = 0;
 
             foreach (var entrada in entradas.EnumerateArray())
             {
                 ct.ThrowIfCancellationRequested();
 
-                // ==================================
-                // VALIDAR CUENTA WHATSAPP
-                // ==================================
+                var wabaId = ObtenerTexto(entrada, "id");
 
-                var wabaId = ObtenerTexto(
-                    entrada,
-                    "id");
-
-                if (wabaId !=
-                    options.WhatsAppBusinessAccountId)
-                {
+                if (wabaId != options.WhatsAppBusinessAccountId)
                     continue;
-                }
-
-                // ==================================
-                // RECUPERAR CAMBIOS
-                // ==================================
 
                 if (!entrada.TryGetProperty(
                     "changes",
                     out var cambios) ||
-                    cambios.ValueKind !=
-                        JsonValueKind.Array)
+                    cambios.ValueKind != JsonValueKind.Array)
                 {
                     continue;
                 }
 
                 foreach (var cambio in cambios.EnumerateArray())
                 {
-                    var campo = ObtenerTexto(
-                        cambio,
-                        "field");
-
-                    if (campo != "messages")
-                    {
+                    if (ObtenerTexto(cambio, "field") != "messages")
                         continue;
-                    }
 
                     if (!cambio.TryGetProperty(
                         "value",
-                        out var valor))
+                        out var valor) ||
+                        valor.ValueKind != JsonValueKind.Object)
                     {
                         continue;
                     }
-
-                    // ==================================
-                    // VALIDAR PHONE NUMBER ID
-                    // ==================================
 
                     if (!valor.TryGetProperty(
                         "metadata",
@@ -129,26 +93,18 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                         continue;
                     }
 
-                    var phoneNumberId = ObtenerTexto(
-                        metadata,
-                        "phone_number_id");
+                    var phoneNumberId =
+                        ObtenerTexto(metadata, "phone_number_id");
 
                     if (phoneNumberId != options.PhoneNumberId)
-                    {
                         continue;
-                    }
-
-                    // ==================================
-                    // RECUPERAR ESTADOS
-                    // ==================================
 
                     if (!valor.TryGetProperty(
                         "statuses",
                         out var estados) ||
                         estados.ValueKind != JsonValueKind.Array)
                     {
-                        // Los mensajes entrantes no
-                        // se procesan en esta versión.
+                        // Nextag v1 no procesa mensajes entrantes.
                         continue;
                     }
 
@@ -156,19 +112,32 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                     {
                         ct.ThrowIfCancellationRequested();
 
-                        await ProcesarEstadoAsync(
+                        var agregado = await AlmacenarEstadoAsync(
+                            wabaId!,
+                            phoneNumberId!,
                             estado,
                             ct);
+
+                        if (agregado)
+                            almacenados++;
                     }
                 }
             }
+
+            logger.LogInformation(
+                "Webhook WhatsApp recibido. Eventos nuevos: {Cantidad}",
+                almacenados);
+
+            return almacenados;
         }
 
         // ==========================================
-        // PROCESAR ESTADO
+        // ALMACENAR ESTADO
         // ==========================================
 
-        private async Task ProcesarEstadoAsync(
+        private async Task<bool> AlmacenarEstadoAsync(
+            string wabaId,
+            string phoneNumberId,
             JsonElement estado,
             CancellationToken ct)
         {
@@ -180,200 +149,163 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 estado,
                 "status");
 
-            if (string.IsNullOrWhiteSpace(
-                identificador))
+            if (string.IsNullOrWhiteSpace(identificador))
+                return false;
+
+            if (estadoMeta is not
+                ("sent" or "delivered" or "read" or "failed"))
             {
-                return;
+                return false;
             }
 
             // ======================================
-            // MAPEAR ESTADO META
+            // FECHA ORIGINAL DE META
             // ======================================
 
-            var estadoNextag = estadoMeta switch
+            DateTime? fechaEventoMeta = null;
+
+            var timestamp = ObtenerTexto(
+                estado,
+                "timestamp");
+
+            if (long.TryParse(timestamp, out var segundos))
             {
-                "sent" => "ENVIADO",
-
-                "delivered" => "ENTREGADO",
-
-                "read" => "LEIDO",
-
-                "failed" => "FALLIDO",
-
-                _ => null
-            };
-
-            if (estadoNextag == null)
-            {
-                return;
-            }
-
-            // ======================================
-            // RECUPERAR ENVIO
-            // ======================================
-
-            var envio = await context.NotificacionEnvios
-                .AsNoTracking()
-                .Where(x =>
-                    x.Canal == "WHATSAPP" &&
-                    x.Proveedor == "META" &&
-                    x.IdentificadorProveedor ==
-                        identificador)
-                .Select(x => new
+                try
                 {
-                    x.Id,
-                    x.Estado
-                })
-                .FirstOrDefaultAsync(ct);
-
-            if (envio == null)
-            {
-                logger.LogDebug(
-                    "Webhook WhatsApp sin envío asociado.");
-                return;
+                    fechaEventoMeta =
+                        DateTimeOffset
+                            .FromUnixTimeSeconds(segundos)
+                            .UtcDateTime;
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    // Conservamos fecha nula.
+                }
             }
 
             // ======================================
-            // VALIDAR TRANSICION
+            // CLAVE DE IDEMPOTENCIA
             // ======================================
 
-            if (!PuedeActualizar(
-                envio.Estado,
-                estadoNextag))
-            {
-                return;
-            }
+            var recipientId = ObtenerTexto(
+                estado,
+                "recipient_id") ?? string.Empty;
+
+            var contenidoClave = JsonSerializer.Serialize(
+                new
+                {
+                    wabaId,
+                    phoneNumberId,
+                    identificador,
+                    estadoMeta,
+                    timestamp,
+                    recipientId
+                });
+
+            var hash = SHA256.HashData(
+                Encoding.UTF8.GetBytes(contenidoClave));
+
+            var claveIdempotencia =
+                Convert.ToHexString(hash).ToLowerInvariant();
 
             // ======================================
-            // OBTENER ERROR
+            // VALIDAR DUPLICADO EXISTENTE
             // ======================================
 
-            string? error = null;
+            var existe = await context
+                .WhatsAppWebhookEventos
+                .AsNoTracking()
+                .AnyAsync(x =>
+                    x.ClaveIdempotencia == claveIdempotencia,
+                    ct);
 
-            if (estadoNextag == "FALLIDO")
-            {
-                error = ObtenerError(estado);
-            }
+            if (existe)
+                return false;
+
+            // ======================================
+            // CREAR EVENTO
+            // ======================================
 
             var ahora = DateTime.UtcNow;
 
-            // ======================================
-            // ACTUALIZAR ESTADO
-            // ======================================
-
-            // La condición se repite en SQL Server
-            // para evitar actualizaciones incorrectas
-            // cuando llegan webhooks simultáneos.
-
-            var actualizados = await context
-                .NotificacionEnvios
-                .Where(x =>
-                    x.Id == envio.Id &&
-                    x.Canal == "WHATSAPP" &&
-                    x.Proveedor == "META" &&
-                    x.IdentificadorProveedor ==
-                        identificador &&
-                    (
-                        (
-                            estadoNextag == "ENTREGADO" &&
-                            x.Estado == "ENVIADO"
-                        )
-                        ||
-                        (
-                            estadoNextag == "LEIDO" &&
-                            (
-                                x.Estado == "ENVIADO" ||
-                                x.Estado == "ENTREGADO"
-                            )
-                        )
-                        ||
-                        (
-                            estadoNextag == "FALLIDO" &&
-                            x.Estado == "ENVIADO"
-                        )
-                    ))
-                .ExecuteUpdateAsync(
-                    setters => setters
-                        .SetProperty(
-                            x => x.Estado,
-                            estadoNextag)
-                        .SetProperty(
-                            x => x.UltimoError,
-                            error)
-                        .SetProperty(
-                            x => x.FechaActualizacion,
-                            ahora),
-                    ct);
-
-            if (actualizados > 0)
+            var evento = new WhatsAppWebhookEvento
             {
-                logger.LogInformation(
-                    "Estado WhatsApp actualizado. " +
-                    "EnvioId: {EnvioId}. Estado: {Estado}",
-                    envio.Id,
-                    estadoNextag);
-            }
-        }
+                Id = Guid.NewGuid(),
 
-        // ==========================================
-        // VALIDAR TRANSICION
-        // ==========================================
+                ClaveIdempotencia = claveIdempotencia,
 
-        private static bool PuedeActualizar(
-        string actual,
-        string nuevo)
-        {
-            return nuevo switch
-            {
-                "ENVIADO" => false,
+                WhatsAppBusinessAccountId = wabaId,
 
-                "ENTREGADO" =>
-                    actual == "ENVIADO",
+                PhoneNumberId = phoneNumberId,
 
-                "LEIDO" =>
-                    actual is "ENVIADO" or "ENTREGADO",
+                IdentificadorProveedor = identificador,
 
-                "FALLIDO" =>
-                    actual == "ENVIADO",
+                EstadoMeta = estadoMeta,
 
-                _ => false
+                FechaEventoMeta = fechaEventoMeta,
+
+                EmpresaId = null,
+
+                NotificacionEnvioId = null,
+
+                PayloadJson = estado.GetRawText(),
+
+                Estado = "PENDIENTE",
+
+                Intentos = 0,
+
+                MaxIntentos = 10,
+
+                FechaProximoIntento = ahora,
+
+                FechaBloqueo = null,
+
+                BloqueoToken = null,
+
+                FechaProcesamiento = null,
+
+                UltimoError = null,
+
+                FechaCreacion = ahora
             };
-        }
 
-        // ==========================================
-        // RECUPERAR ERROR META
-        // ==========================================
+            context.WhatsAppWebhookEventos.Add(evento);
 
-        private static string ObtenerError(
-            JsonElement estado)
-        {
-            if (!estado.TryGetProperty(
-                "errors",
-                out var errores) ||
-                errores.ValueKind != JsonValueKind.Array ||
-                errores.GetArrayLength() == 0)
+            try
             {
-                return "WEBHOOK_META: Fallo de entrega.";
+                await context.SaveChangesAsync(ct);
+
+                return true;
             }
+            catch (DbUpdateException ex)
+                when (EsIndiceDuplicado(ex))
+            {
+                // Otra ejecución pudo insertar el
+                // mismo evento simultáneamente.
+                //
+                // El índice único garantiza
+                // la idempotencia.
 
-            var error = errores[0];
+                context.Entry(evento).State =
+                    EntityState.Detached;
 
-            var codigo = error.TryGetProperty(
-                "code",
-                out var codigoJson)
-                    ? codigoJson.ToString()
-                    : "N/D";
-
-            var mensaje =
-                $"WEBHOOK_META: Fallo de entrega. Código {codigo}.";
-
-            return mensaje.Length > 1000
-                ? mensaje[..1000]
-                : mensaje;
+                return false;
+            }
         }
 
         // ==========================================
-        // OBTENER TEXTO JSON
+        // IDENTIFICAR ERROR DE INDICE UNICO
+        // ==========================================
+
+        private static bool EsIndiceDuplicado(
+            DbUpdateException exception)
+        {
+            return exception.InnerException is SqlException sql &&
+                   sql.Number is 2601 or 2627;
+        }
+
+        // ==========================================
+        // OBTENER TEXTO
         // ==========================================
 
         private static string? ObtenerTexto(
@@ -381,9 +313,7 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
             string propiedad)
         {
             if (elemento.ValueKind != JsonValueKind.Object)
-            {
                 return null;
-            }
 
             if (!elemento.TryGetProperty(
                 propiedad,
@@ -392,9 +322,14 @@ namespace Nextag.Api.Services.Notificaciones.Implementation
                 return null;
             }
 
-            return valor.ValueKind == JsonValueKind.String
-                ? valor.GetString()
-                : null;
+            return valor.ValueKind switch
+            {
+                JsonValueKind.String => valor.GetString(),
+
+                JsonValueKind.Number => valor.ToString(),
+
+                _ => null
+            };
         }
     }
 }
