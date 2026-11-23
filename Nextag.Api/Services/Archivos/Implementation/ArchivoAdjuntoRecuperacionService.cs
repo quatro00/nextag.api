@@ -54,6 +54,97 @@ namespace Nextag.Api.Services.Archivos.Implementation
         }
 
         // ==========================================
+        // MARCAR ARCHIVO PUBLICO COMO ERROR
+        // Y LIBERAR RESERVA
+        // ==========================================
+
+        private async Task<bool> MarcarErrorPublicoAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            Guid autorizacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            await using var transaction =
+                await context.Database.BeginTransactionAsync(ct);
+
+            // ======================================
+            // VALIDAR Y ACTUALIZAR ARCHIVO
+            // ======================================
+
+            var filasArchivo = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    x.TicketAdjuntoTokenId == autorizacionId &&
+                    x.EstadoAlmacenamiento == "RECUPERANDO" &&
+                    x.RecuperacionId == recuperacionId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "ERROR")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        (Guid?)null)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            if (filasArchivo != 1)
+            {
+                await transaction.RollbackAsync(ct);
+
+                return false;
+            }
+
+            // ======================================
+            // LIBERAR RESERVA PUBLICA
+            // ======================================
+
+            var filasToken = await context.TicketAdjuntoTokens
+                .Where(x =>
+                    x.Id == autorizacionId &&
+                    x.EmpresaId == empresaId &&
+                    x.ArchivosCargados > 0)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.ArchivosCargados,
+                        x => x.ArchivosCargados - 1),
+                    ct);
+
+            if (filasToken != 1)
+            {
+                await transaction.RollbackAsync(ct);
+
+                logger.LogWarning(
+                    "No fue posible liberar la reserva del archivo {ArchivoId}. " +
+                    "Autorización: {AutorizacionId}",
+                    archivoId,
+                    autorizacionId);
+
+                return false;
+            }
+
+            // ======================================
+            // CONFIRMAR TRANSACCION
+            // ======================================
+
+            await transaction.CommitAsync(ct);
+
+            logger.LogInformation(
+                "Archivo público {ArchivoId} marcado como ERROR. " +
+                "Reserva {AutorizacionId} liberada.",
+                archivoId,
+                autorizacionId);
+
+            return true;
+        }
+
+        // ==========================================
         // ADQUIRIR ARCHIVO PARA RECUPERACION
         // ==========================================
 
@@ -662,34 +753,40 @@ namespace Nextag.Api.Services.Archivos.Implementation
                             continue;
                         }
 
-                        // ==================================
+                        // ==========================================
                         // ARCHIVOS PUBLICOS
-                        // ==================================
-
-                        // En 7H-H cambiaremos el estado a ERROR
-                        // y liberaremos la reserva en la misma
-                        // transacción.
-                        //
-                        // Por ahora se mantiene PENDIENTE
-                        // para evitar inconsistencias.
+                        // ==========================================
 
                         if (archivo.TicketAdjuntoTokenId.HasValue)
                         {
-                            finalizado = await LiberarParaReintentoAsync(
+                            var marcadoPublico = await MarcarErrorPublicoAsync(
                                 archivo.Id,
                                 archivo.EmpresaId,
                                 recuperacionId,
+                                archivo.TicketAdjuntoTokenId.Value,
                                 ct);
 
-                            if (!finalizado)
+                            if (marcadoPublico)
+                            {
+                                resultado.MarcadosError++;
+                                resultado.ReservasLiberadas++;
+
+                                finalizado = true;
+
+                                logger.LogInformation(
+                                    "Archivo público {ArchivoId} marcado como ERROR. " +
+                                    "Reserva liberada correctamente.",
+                                    archivo.Id);
+                            }
+                            else
                             {
                                 resultado.Fallidos++;
-                            }
 
-                            logger.LogWarning(
-                                "Archivo público {ArchivoId} pendiente de " +
-                                "conciliación de reserva en 7H-H.",
-                                archivo.Id);
+                                logger.LogWarning(
+                                    "No fue posible conciliar la reserva " +
+                                    "del archivo público {ArchivoId}.",
+                                    archivo.Id);
+                            }
 
                             continue;
                         }
