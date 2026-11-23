@@ -47,6 +47,8 @@ public partial class ArchivoAdjunto
 
     public Guid? RecuperacionId { get; set; }
 
+    public DateTime? FechaLimpiezaStorage { get; set; }
+
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual OrdenTrabajo? OrdenTrabajo { get; set; }

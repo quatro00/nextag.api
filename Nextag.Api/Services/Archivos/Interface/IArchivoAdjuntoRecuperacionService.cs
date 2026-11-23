@@ -12,5 +12,14 @@ namespace Nextag.Api.Services.Archivos.Interface
             ProcesarPendientesAsync(
                 int cantidad = 20,
                 CancellationToken ct = default);
+
+        // ==========================================
+        // LIMPIAR ARCHIVOS RESIDUALES
+        // ==========================================
+
+        Task<ArchivoRecuperacionResultadoDto>
+            LimpiarResidualesAsync(
+                int cantidad = 20,
+                CancellationToken ct = default);
     }
 }

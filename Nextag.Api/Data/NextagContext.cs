@@ -412,6 +412,7 @@ public partial class NextagContext : DbContext
                 .HasPrecision(3)
                 .HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.FechaEliminacion).HasPrecision(3);
+            entity.Property(e => e.FechaLimpiezaStorage).HasPrecision(3);
             entity.Property(e => e.HashSha256)
                 .HasMaxLength(64)
                 .IsUnicode(false);

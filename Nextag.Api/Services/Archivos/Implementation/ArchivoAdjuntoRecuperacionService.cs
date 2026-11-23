@@ -38,6 +38,12 @@ namespace Nextag.Api.Services.Archivos.Implementation
         private const int MinutosBloqueo = 15;
 
         // ==========================================
+        // CONFIGURACION DE LIMPIEZA
+        // ==========================================
+
+        private const int HorasAntiguedadLimpieza = 24;
+
+        // ==========================================
         // CONSTRUCTOR
         // ==========================================
 
@@ -142,6 +148,384 @@ namespace Nextag.Api.Services.Archivos.Implementation
                 autorizacionId);
 
             return true;
+        }
+
+        // ==========================================
+        // ADQUIRIR ARCHIVO PARA LIMPIEZA
+        // ==========================================
+
+        private async Task<bool> AdquirirArchivoLimpiezaAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var fechaLimite = ahora.AddHours(
+                -HorasAntiguedadLimpieza);
+
+            var fechaBloqueo = ahora.AddMinutes(
+                -MinutosBloqueo);
+
+            var filas = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    x.FechaLimpiezaStorage == null &&
+                    (
+                        (
+                            x.EstadoAlmacenamiento == "ERROR" &&
+                            (
+                                x.FechaActualizacion ?? x.FechaCreacion
+                            ) <= fechaLimite
+                        )
+                        ||
+                        (
+                            x.EstadoAlmacenamiento == "LIMPIANDO" &&
+                            x.FechaActualizacion != null &&
+                            x.FechaActualizacion <= fechaBloqueo
+                        )
+                    )
+                )
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "LIMPIANDO")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        recuperacionId)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            return filas == 1;
+        }
+
+        // ==========================================
+        // CONFIRMAR LIMPIEZA FISICA
+        // ==========================================
+
+        private async Task<bool> ConfirmarLimpiezaAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var filas = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    x.EstadoAlmacenamiento == "LIMPIANDO" &&
+                    x.RecuperacionId == recuperacionId &&
+                    x.FechaLimpiezaStorage == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "ERROR")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        (Guid?)null)
+                    .SetProperty(
+                        x => x.FechaLimpiezaStorage,
+                        ahora)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            return filas == 1;
+        }
+
+        // ==========================================
+        // LIBERAR ARCHIVO DE LIMPIEZA
+        // ==========================================
+
+        private async Task<bool> LiberarArchivoLimpiezaAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var filas = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    x.EstadoAlmacenamiento == "LIMPIANDO" &&
+                    x.RecuperacionId == recuperacionId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "ERROR")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        (Guid?)null)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            return filas == 1;
+        }
+
+        // ==========================================
+        // LIMPIAR ARCHIVOS FISICOS RESIDUALES
+        // ==========================================
+
+        public async Task<ArchivoRecuperacionResultadoDto>
+            LimpiarResidualesAsync(
+                int cantidad = 20,
+                CancellationToken ct = default)
+        {
+            // ======================================
+            // NORMALIZAR CANTIDAD
+            // ======================================
+
+            cantidad = Math.Clamp(
+                cantidad,
+                1,
+                CantidadMaxima);
+
+            var resultado = new ArchivoRecuperacionResultadoDto
+            {
+                FechaInicio = DateTime.UtcNow
+            };
+
+            try
+            {
+                var ahora = DateTime.UtcNow;
+
+                var fechaLimite = ahora.AddHours(
+                    -HorasAntiguedadLimpieza);
+
+                var fechaBloqueo = ahora.AddMinutes(
+                    -MinutosBloqueo);
+
+                // ==================================
+                // BUSCAR CANDIDATOS
+                // ==================================
+
+                var candidatos = await context.ArchivoAdjuntos
+                    .AsNoTracking()
+                    .Where(x =>
+                        !x.Eliminado &&
+                        x.FechaLimpiezaStorage == null &&
+                        (
+                            (
+                                x.EstadoAlmacenamiento == "ERROR" &&
+                                (
+                                    x.FechaActualizacion ?? x.FechaCreacion
+                                ) <= fechaLimite
+                            )
+                            ||
+                            (
+                                x.EstadoAlmacenamiento == "LIMPIANDO" &&
+                                x.FechaActualizacion != null &&
+                                x.FechaActualizacion <= fechaBloqueo
+                            )
+                        )
+                    )
+                    .OrderBy(x => x.FechaCreacion)
+                    .ThenBy(x => x.Id)
+                    .Select(x => new
+                    {
+                        x.Id,
+                        x.EmpresaId,
+                        x.RutaStorage
+                    })
+                    .Take(cantidad)
+                    .ToListAsync(ct);
+
+                resultado.Encontrados = candidatos.Count;
+
+                logger.LogInformation(
+                    "Limpieza de adjuntos: {Cantidad} candidatos encontrados.",
+                    candidatos.Count);
+
+                // ==================================
+                // PROCESAR CANDIDATOS
+                // ==================================
+
+                foreach (var archivo in candidatos)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    var recuperacionId = Guid.NewGuid();
+
+                    var adquirido = false;
+                    var finalizado = false;
+
+                    try
+                    {
+                        // ==============================
+                        // ADQUIRIR ARCHIVO
+                        // ==============================
+
+                        adquirido = await AdquirirArchivoLimpiezaAsync(
+                            archivo.Id,
+                            archivo.EmpresaId,
+                            recuperacionId,
+                            ct);
+
+                        if (!adquirido)
+                        {
+                            resultado.Omitidos++;
+
+                            continue;
+                        }
+
+                        // ==============================
+                        // VERIFICAR EXISTENCIA FISICA
+                        // ==============================
+
+                        var existe = await storage.ExisteAsync(
+                            archivo.RutaStorage,
+                            ct);
+
+                        // ==============================
+                        // ELIMINAR ARCHIVO FISICO
+                        // ==============================
+
+                        if (existe)
+                        {
+                            await storage.EliminarAsync(
+                                archivo.RutaStorage,
+                                ct);
+                        }
+
+                        // ==============================
+                        // VERIFICAR ELIMINACION
+                        // ==============================
+
+                        var sigueExistiendo =
+                            await storage.ExisteAsync(
+                                archivo.RutaStorage,
+                                ct);
+
+                        if (sigueExistiendo)
+                        {
+                            throw new IOException(
+                                "El archivo físico continúa existiendo después de eliminarlo.");
+                        }
+
+                        // ==============================
+                        // CONFIRMAR LIMPIEZA
+                        // ==============================
+
+                        var confirmado = await ConfirmarLimpiezaAsync(
+                            archivo.Id,
+                            archivo.EmpresaId,
+                            recuperacionId,
+                            ct);
+
+                        if (confirmado)
+                        {
+                            finalizado = true;
+
+                            if (existe)
+                            {
+                                resultado.ArchivosEliminados++;
+                            }
+                            else
+                            {
+                                resultado.Omitidos++;
+                            }
+
+                            logger.LogInformation(
+                                "Limpieza física confirmada. " +
+                                "ArchivoId: {ArchivoId}. " +
+                                "Existía físicamente: {Existia}",
+                                archivo.Id,
+                                existe);
+                        }
+                        else
+                        {
+                            resultado.Fallidos++;
+
+                            logger.LogWarning(
+                                "No fue posible confirmar la limpieza " +
+                                "del archivo {ArchivoId}.",
+                                archivo.Id);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                        when (ct.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        resultado.Fallidos++;
+
+                        logger.LogError(
+                            ex,
+                            "Error al limpiar archivo residual " +
+                            "{ArchivoId}. Empresa: {EmpresaId}",
+                            archivo.Id,
+                            archivo.EmpresaId);
+                    }
+                    finally
+                    {
+                        // ==============================
+                        // LIBERAR BLOQUEO
+                        // ==============================
+
+                        if (adquirido && !finalizado)
+                        {
+                            try
+                            {
+                                using var recuperacionCts =
+                                    new CancellationTokenSource(
+                                        TimeSpan.FromSeconds(15));
+
+                                var liberado = await LiberarArchivoLimpiezaAsync(
+                                    archivo.Id,
+                                    archivo.EmpresaId,
+                                    recuperacionId,
+                                    recuperacionCts.Token);
+
+                                if (!liberado)
+                                {
+                                    logger.LogWarning(
+                                        "No fue posible liberar el bloqueo " +
+                                        "de limpieza del archivo {ArchivoId}.",
+                                        archivo.Id);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(
+                                    ex,
+                                    "Error al liberar limpieza del archivo {ArchivoId}.",
+                                    archivo.Id);
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                resultado.FechaFin = DateTime.UtcNow;
+
+                logger.LogInformation(
+                    "Limpieza de adjuntos finalizada. " +
+                    "Encontrados: {Encontrados}. " +
+                    "Eliminados: {Eliminados}. " +
+                    "Fallidos: {Fallidos}.",
+                    resultado.Encontrados,
+                    resultado.ArchivosEliminados,
+                    resultado.Fallidos);
+            }
+
+            return resultado;
         }
 
         // ==========================================
