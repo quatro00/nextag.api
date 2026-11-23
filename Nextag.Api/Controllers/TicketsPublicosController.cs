@@ -104,7 +104,7 @@ namespace Nextag.Api.Controllers
         [RequestSizeLimit(11 * 1024 * 1024)]
         public async Task<IActionResult> SubirAdjunto(
             Guid ticketId,
-            [FromForm] IFormFile archivo,
+            IFormFile archivo,
             [FromForm] string token,
             CancellationToken ct)
         {
