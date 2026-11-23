@@ -231,9 +231,13 @@ if (string.Equals(
     // SERVICIO DE ARCHIVOS ADJUNTOS
     // ==========================================
 
-    builder.Services.AddScoped<
-        IArchivoAdjuntoService,
-        ArchivoAdjuntoService>();
+    builder.Services.AddScoped<IArchivoAdjuntoService, ArchivoAdjuntoService>();
+
+    // ==========================================
+    // RECUPERACION DE ARCHIVOS ADJUNTOS
+    // ==========================================
+
+    builder.Services.AddScoped<IArchivoAdjuntoRecuperacionService, ArchivoAdjuntoRecuperacionService>();
 }
 else
 {
