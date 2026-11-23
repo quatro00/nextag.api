@@ -339,6 +339,55 @@ app.MapControllers();
 if (app.Environment.IsDevelopment())
 {
     // ==========================================
+    // RECUPERAR ARCHIVOS ADJUNTOS
+    // SOLO DEVELOPMENT
+    // ==========================================
+
+    app.MapPost(
+        "/api/dev/archivos/recuperar",
+        async (
+            IArchivoAdjuntoRecuperacionService procesador,
+            int cantidad,
+            CancellationToken ct) =>
+        {
+            var resultado = await procesador
+                .ProcesarPendientesAsync(
+                    cantidad <= 0 ? 20 : cantidad,
+                    ct);
+
+            return Results.Ok(resultado);
+        })
+        .RequireAuthorization(policy =>
+            policy.RequireRole("ADMINISTRADOR"))
+        .WithTags("Archivos - Desarrollo")
+        .WithName("RecuperarArchivosPendientes");
+
+
+    // ==========================================
+    // LIMPIAR ARCHIVOS RESIDUALES
+    // SOLO DEVELOPMENT
+    // ==========================================
+
+    app.MapPost(
+        "/api/dev/archivos/limpiar",
+        async (
+            IArchivoAdjuntoRecuperacionService procesador,
+            int cantidad,
+            CancellationToken ct) =>
+        {
+            var resultado = await procesador
+                .LimpiarResidualesAsync(
+                    cantidad <= 0 ? 20 : cantidad,
+                    ct);
+
+            return Results.Ok(resultado);
+        })
+        .RequireAuthorization(policy =>
+            policy.RequireRole("ADMINISTRADOR"))
+        .WithTags("Archivos - Desarrollo")
+        .WithName("LimpiarArchivosResiduales");
+
+    // ==========================================
     // PROCESAR WEBHOOKS PENDIENTES
     // SOLO DEVELOPMENT
     // ==========================================
