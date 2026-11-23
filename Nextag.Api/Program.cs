@@ -215,6 +215,12 @@ builder.Services.AddScoped<IWhatsAppWebhookService, WhatsAppWebhookService>();
 
 builder.Services.AddScoped<IWhatsAppWebhookProcesadorService, WhatsAppWebhookProcesadorService>();
 
+// ==========================================
+// RECUPERACION DE ARCHIVOS ADJUNTOS
+// ==========================================
+
+builder.Services.AddScoped<IArchivoAdjuntoRecuperacionService, ArchivoAdjuntoRecuperacionService>();
+
 var proveedorArchivos =
     builder.Configuration[
         "ArchivoStorage:Provider"];
@@ -232,18 +238,13 @@ if (string.Equals(
     // ==========================================
 
     builder.Services.AddScoped<IArchivoAdjuntoService, ArchivoAdjuntoService>();
-
-    // ==========================================
-    // RECUPERACION DE ARCHIVOS ADJUNTOS
-    // ==========================================
-
-    builder.Services.AddScoped<IArchivoAdjuntoRecuperacionService, ArchivoAdjuntoRecuperacionService>();
 }
 else
 {
     throw new InvalidOperationException(
         $"Proveedor de almacenamiento no soportado: {proveedorArchivos}");
 }
+
 
 builder.Services.AddRateLimiter(options =>
 {
