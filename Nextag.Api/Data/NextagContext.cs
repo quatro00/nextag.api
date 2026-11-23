@@ -396,6 +396,8 @@ public partial class NextagContext : DbContext
 
             entity.HasIndex(e => new { e.EmpresaId, e.OrdenTrabajoId }, "IX_ArchivoAdjunto_OT");
 
+            entity.HasIndex(e => new { e.EstadoAlmacenamiento, e.FechaCreacion }, "IX_ArchivoAdjunto_Recuperacion").HasFilter("([Eliminado]=(0))");
+
             entity.HasIndex(e => new { e.EmpresaId, e.TicketSeguimientoId }, "IX_ArchivoAdjunto_Seguimiento");
 
             entity.HasIndex(e => new { e.EmpresaId, e.TicketId }, "IX_ArchivoAdjunto_Ticket");

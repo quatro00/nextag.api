@@ -43,6 +43,8 @@ public partial class ArchivoAdjunto
 
     public DateTime? FechaActualizacion { get; set; }
 
+    public Guid? TicketAdjuntoTokenId { get; set; }
+
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual OrdenTrabajo? OrdenTrabajo { get; set; }

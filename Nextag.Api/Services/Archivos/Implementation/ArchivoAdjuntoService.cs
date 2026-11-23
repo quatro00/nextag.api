@@ -842,7 +842,7 @@ namespace Nextag.Api.Services.Archivos.Implementation
 
                 EmpresaId = empresaId,
                 TicketId = ticketId,
-
+                TicketAdjuntoTokenId = autorizacionId,
                 TicketSeguimientoId = null,
                 OrdenTrabajoId = null,
 
