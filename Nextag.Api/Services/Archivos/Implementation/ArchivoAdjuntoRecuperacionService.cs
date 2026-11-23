@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Nextag.Api.Data;
 using Nextag.Api.Models.Dto.Archivos;
 using Nextag.Api.Services.Archivos.Interface;
+using System.Security.Cryptography;
 
 namespace Nextag.Api.Services.Archivos.Implementation
 {
@@ -42,6 +43,221 @@ namespace Nextag.Api.Services.Archivos.Implementation
             this.storage = storage;
 
             this.logger = logger;
+        }
+
+        // ==========================================
+        // VALIDAR INTEGRIDAD DEL ARCHIVO
+        // ==========================================
+
+        private async Task<ArchivoIntegridadResultadoDto>
+            ValidarIntegridadAsync(
+                string rutaStorage,
+                long tamanoEsperado,
+                string? hashEsperado,
+                CancellationToken ct)
+        {
+            var resultado = new ArchivoIntegridadResultadoDto
+            {
+                Valido = false,
+
+                Estado = "PENDIENTE_VALIDACION",
+
+                TamanoEsperado = tamanoEsperado,
+
+                HashEsperado = hashEsperado
+            };
+
+            // ======================================
+            // VALIDAR METADATOS
+            // ======================================
+
+            if (
+                string.IsNullOrWhiteSpace(rutaStorage) ||
+                tamanoEsperado <= 0 ||
+                string.IsNullOrWhiteSpace(hashEsperado) ||
+                hashEsperado.Length != 64 ||
+                !hashEsperado.All(Uri.IsHexDigit)
+            )
+            {
+                resultado.Estado = "METADATOS_INVALIDOS";
+
+                resultado.Mensaje =
+                    "Los metadatos del archivo son inválidos o están incompletos.";
+
+                return resultado;
+            }
+
+            // ======================================
+            // VERIFICAR EXISTENCIA
+            // ======================================
+
+            try
+            {
+                var existe = await storage.ExisteAsync(
+                    rutaStorage,
+                    ct);
+
+                if (!existe)
+                {
+                    resultado.Estado = "NO_EXISTE";
+
+                    resultado.Mensaje =
+                        "El archivo físico no existe.";
+
+                    return resultado;
+                }
+
+                // ==================================
+                // ABRIR ARCHIVO
+                // ==================================
+
+                await using var stream =
+                    await storage.AbrirLecturaAsync(
+                        rutaStorage,
+                        ct);
+
+                // ==================================
+                // CALCULAR HASH Y TAMAÑO
+                // ==================================
+
+                using var sha256 =
+                    IncrementalHash.CreateHash(
+                        HashAlgorithmName.SHA256);
+
+                var buffer = new byte[81920];
+
+                long totalBytes = 0;
+
+                int bytesLeidos;
+
+                while (
+                    (bytesLeidos = await stream.ReadAsync(
+                        buffer.AsMemory(),
+                        ct)) > 0
+                )
+                {
+                    totalBytes += bytesLeidos;
+
+                    // ==================================
+                    // PROTEGER CONTRA TAMAÑOS INESPERADOS
+                    // ==================================
+
+                    if (totalBytes > tamanoEsperado)
+                    {
+                        resultado.TamanoReal = totalBytes;
+
+                        resultado.Estado = "TAMANO_INVALIDO";
+
+                        resultado.Mensaje =
+                            "El archivo físico supera el tamaño registrado.";
+
+                        return resultado;
+                    }
+
+                    // ==================================
+                    // INCORPORAR CONTENIDO AL HASH
+                    // ==================================
+
+                    sha256.AppendData(
+                        buffer,
+                        0,
+                        bytesLeidos);
+                }
+
+                resultado.TamanoReal = totalBytes;
+
+                // ==================================
+                // COMPARAR TAMAÑO
+                // ==================================
+
+                if (totalBytes != tamanoEsperado)
+                {
+                    resultado.Estado = "TAMANO_INVALIDO";
+
+                    resultado.Mensaje =
+                        "El tamaño físico no coincide con el registrado.";
+
+                    return resultado;
+                }
+
+                // ==================================
+                // OBTENER SHA256
+                // ==================================
+
+                var hashReal = Convert
+                    .ToHexString(
+                        sha256.GetHashAndReset())
+                    .ToLowerInvariant();
+
+                resultado.HashReal = hashReal;
+
+                // ==================================
+                // COMPARAR HASH
+                // ==================================
+
+                if (!string.Equals(
+                    hashReal,
+                    hashEsperado,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    resultado.Estado = "HASH_INVALIDO";
+
+                    resultado.Mensaje =
+                        "El contenido del archivo no coincide con el hash registrado.";
+
+                    return resultado;
+                }
+
+                // ==================================
+                // ARCHIVO VALIDO
+                // ==================================
+
+                resultado.Valido = true;
+
+                resultado.Estado = "VALIDO";
+
+                resultado.Mensaje =
+                    "El archivo existe y su integridad fue verificada.";
+
+                return resultado;
+            }
+            catch (OperationCanceledException)
+                when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (FileNotFoundException)
+            {
+                resultado.Estado = "NO_EXISTE";
+
+                resultado.Mensaje =
+                    "El archivo desapareció durante la validación.";
+
+                return resultado;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                resultado.Estado = "NO_EXISTE";
+
+                resultado.Mensaje =
+                    "El directorio del archivo no existe.";
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Error al validar integridad del archivo {RutaStorage}",
+                    rutaStorage);
+
+                resultado.Estado = "ERROR_LECTURA";
+
+                resultado.Mensaje =
+                    "No fue posible leer o validar el archivo.";
+
+                return resultado;
+            }
         }
 
         // ==========================================
@@ -159,47 +375,61 @@ namespace Nextag.Api.Services.Archivos.Implementation
                             continue;
                         }
 
-                        // ==========================
-                        // VERIFICAR EXISTENCIA FISICA
-                        // ==========================
+                        // ==========================================
+                        // VALIDAR INTEGRIDAD
+                        // ==========================================
 
-                        var existe = await storage
-                            .ExisteAsync(
-                                archivo.RutaStorage,
-                                ct);
+                        var integridad = await ValidarIntegridadAsync(
+                            archivo.RutaStorage,
+                            archivo.TamanoBytes,
+                            archivo.HashSha256,
+                            ct);
 
-                        // ==========================
-                        // REGISTRAR DIAGNOSTICO
-                        // ==========================
+                        // ==========================================
+                        // REGISTRAR RESULTADO
+                        // ==========================================
 
-                        if (existe)
+                        if (integridad.Valido)
                         {
+                            resultado.ArchivosValidos++;
                             logger.LogInformation(
-                                "Archivo pendiente encontrado " +
-                                "físicamente. ArchivoId: {ArchivoId}",
-                                archivo.Id);
+                                "Archivo {ArchivoId} válido. " +
+                                "Empresa: {EmpresaId}. " +
+                                "Tamaño: {TamanoBytes} bytes.",
+                                archivo.Id,
+                                archivo.EmpresaId,
+                                integridad.TamanoReal);
                         }
                         else
                         {
+                            resultado.ArchivosInvalidos++;
                             logger.LogWarning(
-                                "Archivo pendiente sin contenido " +
-                                "físico. ArchivoId: {ArchivoId}",
-                                archivo.Id);
+                                "Archivo {ArchivoId} no válido. " +
+                                "Empresa: {EmpresaId}. " +
+                                "Estado: {Estado}. " +
+                                "Mensaje: {Mensaje}.",
+                                archivo.Id,
+                                archivo.EmpresaId,
+                                integridad.Estado,
+                                integridad.Mensaje);
                         }
 
-                        // ==================================
-                        // 7H-F / 7H-G
-                        // ==================================
+                        // ==========================================
+                        // SIGUIENTES ETAPAS
+                        // ==========================================
                         //
-                        // En los siguientes bloques:
+                        // 7H-G:
+                        // Adquirir archivo mediante transición
+                        // atómica y modificar su estado.
                         //
-                        // 1. Adquirir el archivo de forma atómica.
-                        // 2. Validar tamaño.
-                        // 3. Calcular y comparar hash SHA-256.
-                        // 4. Cambiar estado según el resultado.
-                        // 5. Liberar la reserva cuando corresponda.
+                        // 7H-H:
+                        // Liberar reservas públicas cuando
+                        // corresponda.
                         //
-                        // En 7H-E solo diagnosticamos.
+                        // 7H-I:
+                        // Limpiar archivos físicos residuales.
+                        //
+                        // 7H-F únicamente valida integridad.
 
                     }
                     catch (OperationCanceledException)

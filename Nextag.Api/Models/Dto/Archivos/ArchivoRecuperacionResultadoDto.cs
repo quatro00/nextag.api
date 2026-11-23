@@ -29,6 +29,14 @@
         public int Omitidos { get; set; }
 
         // ==========================================
+        // VALIDACION DE INTEGRIDAD
+        // ==========================================
+
+        public int ArchivosValidos { get; set; }
+
+        public int ArchivosInvalidos { get; set; }
+
+        // ==========================================
         // OBSERVACIONES
         // ==========================================
 
