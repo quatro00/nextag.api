@@ -30,6 +30,14 @@ namespace Nextag.Api.Services.Archivos.Implementation
         private const int CantidadMaxima = 100;
 
         // ==========================================
+        // CONTROL DE RECUPERACION
+        // ==========================================
+
+        // Una recuperación que no se actualiza durante
+        // este tiempo puede ser adquirida nuevamente.
+        private const int MinutosBloqueo = 15;
+
+        // ==========================================
         // CONSTRUCTOR
         // ==========================================
 
@@ -43,6 +51,61 @@ namespace Nextag.Api.Services.Archivos.Implementation
             this.storage = storage;
 
             this.logger = logger;
+        }
+
+        // ==========================================
+        // ADQUIRIR ARCHIVO PARA RECUPERACION
+        // ==========================================
+
+        private async Task<bool> AdquirirArchivoAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var fechaPendiente = ahora.AddMinutes(
+                -MinutosAntiguedad);
+
+            var fechaBloqueo = ahora.AddMinutes(
+                -MinutosBloqueo);
+
+            var filas = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    (
+                        (
+                            x.EstadoAlmacenamiento == "PENDIENTE" &&
+                            x.FechaCreacion <= fechaPendiente &&
+                            (
+                                x.FechaActualizacion == null ||
+                                x.FechaActualizacion <= fechaPendiente
+                            )
+                        )
+                        ||
+                        (
+                            x.EstadoAlmacenamiento == "RECUPERANDO" &&
+                            x.FechaActualizacion != null &&
+                            x.FechaActualizacion <= fechaBloqueo
+                        )
+                    )
+                )
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "RECUPERANDO")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        recuperacionId)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            return filas == 1;
         }
 
         // ==========================================
@@ -261,6 +324,109 @@ namespace Nextag.Api.Services.Archivos.Implementation
         }
 
         // ==========================================
+        // MARCAR ARCHIVO INTERNO COMO ERROR
+        // ==========================================
+
+        private async Task<bool> MarcarErrorInternoAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var filas = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    x.TicketAdjuntoTokenId == null &&
+                    x.EstadoAlmacenamiento == "RECUPERANDO" &&
+                    x.RecuperacionId == recuperacionId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "ERROR")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        (Guid?)null)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            return filas == 1;
+        }
+
+        // ==========================================
+        // LIBERAR ARCHIVO PARA REINTENTO
+        // ==========================================
+
+        private async Task<bool> LiberarParaReintentoAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var filas = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    x.EstadoAlmacenamiento == "RECUPERANDO" &&
+                    x.RecuperacionId == recuperacionId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "PENDIENTE")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        (Guid?)null)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            return filas == 1;
+        }
+
+        // ==========================================
+        // CONFIRMAR ARCHIVO RECUPERADO
+        // ==========================================
+
+        private async Task<bool> ConfirmarRecuperacionAsync(
+            Guid archivoId,
+            Guid empresaId,
+            Guid recuperacionId,
+            CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+
+            var filas = await context.ArchivoAdjuntos
+                .Where(x =>
+                    x.Id == archivoId &&
+                    x.EmpresaId == empresaId &&
+                    !x.Eliminado &&
+                    x.EstadoAlmacenamiento == "RECUPERANDO" &&
+                    x.RecuperacionId == recuperacionId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        x => x.EstadoAlmacenamiento,
+                        "DISPONIBLE")
+                    .SetProperty(
+                        x => x.RecuperacionId,
+                        (Guid?)null)
+                    .SetProperty(
+                        x => x.FechaActualizacion,
+                        ahora),
+                    ct);
+
+            return filas == 1;
+        }
+
+        // ==========================================
         // PROCESAR ARCHIVOS PENDIENTES
         // ==========================================
 
@@ -296,6 +462,8 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     ahora.AddMinutes(
                         -MinutosAntiguedad);
 
+                var fechaBloqueo = ahora.AddMinutes(-MinutosBloqueo);
+
                 // ==================================
                 // CONSULTAR ARCHIVOS
                 // ==================================
@@ -304,14 +472,23 @@ namespace Nextag.Api.Services.Archivos.Implementation
                     .ArchivoAdjuntos
                     .AsNoTracking()
                     .Where(x =>
-
-                        x.EstadoAlmacenamiento ==
-                            "PENDIENTE" &&
-
-                        x.Eliminado == false &&
-
-                        x.FechaCreacion <= fechaLimite
-
+                        !x.Eliminado &&
+                        (
+                            (
+                                x.EstadoAlmacenamiento == "PENDIENTE" &&
+                                x.FechaCreacion <= fechaLimite &&
+                                (
+                                    x.FechaActualizacion == null ||
+                                    x.FechaActualizacion <= fechaLimite
+                                )
+                            )
+                            ||
+                            (
+                                x.EstadoAlmacenamiento == "RECUPERANDO" &&
+                                x.FechaActualizacion != null &&
+                                x.FechaActualizacion <= fechaBloqueo
+                            )
+                        )
                     )
                     .OrderBy(x => x.FechaCreacion)
                     .ThenBy(x => x.Id)
@@ -356,28 +533,58 @@ namespace Nextag.Api.Services.Archivos.Implementation
                 {
                     ct.ThrowIfCancellationRequested();
 
+                    // ======================================
+                    // GENERAR IDENTIFICADOR DE RECUPERACION
+                    // ======================================
+
+                    var recuperacionId = Guid.NewGuid();
+
+                    var adquirido = false;
+
+                    var finalizado = false;
+
                     try
                     {
-                        // ==========================
+                        // ==================================
                         // VALIDAR DATOS BASICOS
-                        // ==========================
+                        // ==================================
 
                         if (archivo.TicketId == null)
                         {
                             resultado.Omitidos++;
 
                             logger.LogWarning(
-                                "Archivo {ArchivoId} " +
-                                "sin TicketId. Empresa: {EmpresaId}",
+                                "Archivo {ArchivoId} sin TicketId. Empresa: {EmpresaId}",
                                 archivo.Id,
                                 archivo.EmpresaId);
 
                             continue;
                         }
 
-                        // ==========================================
+                        // ==================================
+                        // ADQUIRIR ARCHIVO
+                        // ==================================
+
+                        adquirido = await AdquirirArchivoAsync(
+                            archivo.Id,
+                            archivo.EmpresaId,
+                            recuperacionId,
+                            ct);
+
+                        if (!adquirido)
+                        {
+                            resultado.Omitidos++;
+
+                            logger.LogInformation(
+                                "El archivo {ArchivoId} ya está siendo procesado.",
+                                archivo.Id);
+
+                            continue;
+                        }
+
+                        // ==================================
                         // VALIDAR INTEGRIDAD
-                        // ==========================================
+                        // ==================================
 
                         var integridad = await ValidarIntegridadAsync(
                             archivo.RutaStorage,
@@ -385,52 +592,137 @@ namespace Nextag.Api.Services.Archivos.Implementation
                             archivo.HashSha256,
                             ct);
 
-                        // ==========================================
-                        // REGISTRAR RESULTADO
-                        // ==========================================
+                        // ==================================
+                        // ARCHIVO VALIDO
+                        // ==================================
 
                         if (integridad.Valido)
                         {
                             resultado.ArchivosValidos++;
-                            logger.LogInformation(
-                                "Archivo {ArchivoId} válido. " +
-                                "Empresa: {EmpresaId}. " +
-                                "Tamaño: {TamanoBytes} bytes.",
+
+                            var confirmado = await ConfirmarRecuperacionAsync(
                                 archivo.Id,
                                 archivo.EmpresaId,
-                                integridad.TamanoReal);
+                                recuperacionId,
+                                ct);
+
+                            if (confirmado)
+                            {
+                                resultado.Recuperados++;
+
+                                finalizado = true;
+
+                                logger.LogInformation(
+                                    "Archivo {ArchivoId} recuperado correctamente.",
+                                    archivo.Id);
+                            }
+                            else
+                            {
+                                resultado.Fallidos++;
+
+                                logger.LogWarning(
+                                    "No fue posible confirmar la recuperación " +
+                                    "del archivo {ArchivoId}.",
+                                    archivo.Id);
+                            }
+
+                            continue;
+                        }
+
+                        // ==================================
+                        // ARCHIVO NO VALIDO
+                        // ==================================
+
+                        resultado.ArchivosInvalidos++;
+
+                        logger.LogWarning(
+                            "Archivo {ArchivoId} no válido. " +
+                            "Estado: {Estado}. Mensaje: {Mensaje}",
+                            archivo.Id,
+                            integridad.Estado,
+                            integridad.Mensaje);
+
+                        // ==================================
+                        // ERRORES TEMPORALES
+                        // ==================================
+
+                        if (integridad.Estado == "ERROR_LECTURA")
+                        {
+                            finalizado = await LiberarParaReintentoAsync(
+                                archivo.Id,
+                                archivo.EmpresaId,
+                                recuperacionId,
+                                ct);
+
+                            if (!finalizado)
+                            {
+                                resultado.Fallidos++;
+                            }
+
+                            continue;
+                        }
+
+                        // ==================================
+                        // ARCHIVOS PUBLICOS
+                        // ==================================
+
+                        // En 7H-H cambiaremos el estado a ERROR
+                        // y liberaremos la reserva en la misma
+                        // transacción.
+                        //
+                        // Por ahora se mantiene PENDIENTE
+                        // para evitar inconsistencias.
+
+                        if (archivo.TicketAdjuntoTokenId.HasValue)
+                        {
+                            finalizado = await LiberarParaReintentoAsync(
+                                archivo.Id,
+                                archivo.EmpresaId,
+                                recuperacionId,
+                                ct);
+
+                            if (!finalizado)
+                            {
+                                resultado.Fallidos++;
+                            }
+
+                            logger.LogWarning(
+                                "Archivo público {ArchivoId} pendiente de " +
+                                "conciliación de reserva en 7H-H.",
+                                archivo.Id);
+
+                            continue;
+                        }
+
+                        // ==================================
+                        // ARCHIVOS INTERNOS
+                        // ==================================
+
+                        var marcado = await MarcarErrorInternoAsync(
+                            archivo.Id,
+                            archivo.EmpresaId,
+                            recuperacionId,
+                            ct);
+
+                        if (marcado)
+                        {
+                            resultado.MarcadosError++;
+
+                            finalizado = true;
+
+                            logger.LogWarning(
+                                "Archivo interno {ArchivoId} marcado como ERROR.",
+                                archivo.Id);
                         }
                         else
                         {
-                            resultado.ArchivosInvalidos++;
+                            resultado.Fallidos++;
+
                             logger.LogWarning(
-                                "Archivo {ArchivoId} no válido. " +
-                                "Empresa: {EmpresaId}. " +
-                                "Estado: {Estado}. " +
-                                "Mensaje: {Mensaje}.",
-                                archivo.Id,
-                                archivo.EmpresaId,
-                                integridad.Estado,
-                                integridad.Mensaje);
+                                "No fue posible marcar como ERROR " +
+                                "el archivo {ArchivoId}.",
+                                archivo.Id);
                         }
-
-                        // ==========================================
-                        // SIGUIENTES ETAPAS
-                        // ==========================================
-                        //
-                        // 7H-G:
-                        // Adquirir archivo mediante transición
-                        // atómica y modificar su estado.
-                        //
-                        // 7H-H:
-                        // Liberar reservas públicas cuando
-                        // corresponda.
-                        //
-                        // 7H-I:
-                        // Limpiar archivos físicos residuales.
-                        //
-                        // 7H-F únicamente valida integridad.
-
                     }
                     catch (OperationCanceledException)
                         when (ct.IsCancellationRequested)
@@ -443,10 +735,52 @@ namespace Nextag.Api.Services.Archivos.Implementation
 
                         logger.LogError(
                             ex,
-                            "Error al evaluar archivo pendiente " +
-                            "{ArchivoId}. Empresa: {EmpresaId}",
+                            "Error al recuperar archivo {ArchivoId}. Empresa: {EmpresaId}",
                             archivo.Id,
                             archivo.EmpresaId);
+                    }
+                    finally
+                    {
+                        // ==================================
+                        // LIBERAR BLOQUEO SI QUEDO ACTIVO
+                        // ==================================
+
+                        if (adquirido && !finalizado)
+                        {
+                            try
+                            {
+                                // La recuperación puede ocurrir después
+                                // de que se canceló la solicitud.
+                                // Utilizamos un token independiente
+                                // para intentar liberar el bloqueo.
+
+                                using var recuperacionCts =
+                                    new CancellationTokenSource(
+                                        TimeSpan.FromSeconds(15));
+
+                                var liberado = await LiberarParaReintentoAsync(
+                                    archivo.Id,
+                                    archivo.EmpresaId,
+                                    recuperacionId,
+                                    recuperacionCts.Token);
+
+                                if (!liberado)
+                                {
+                                    logger.LogWarning(
+                                        "No se pudo liberar la recuperación " +
+                                        "del archivo {ArchivoId}. " +
+                                        "Se reintentará cuando expire el bloqueo.",
+                                        archivo.Id);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(
+                                    ex,
+                                    "Error al liberar bloqueo del archivo {ArchivoId}.",
+                                    archivo.Id);
+                            }
+                        }
                     }
                 }
             }
