@@ -25,12 +25,16 @@ using Nextag.Api.Services.CategoriasTicket.Implementation;
 using Nextag.Api.Services.CategoriasTicket.Interface;
 using Nextag.Api.Services.Clientes.Implementation;
 using Nextag.Api.Services.Clientes.Interface;
+using Nextag.Api.Services.Contratos.Implementation;
+using Nextag.Api.Services.Contratos.Interface;
 using Nextag.Api.Services.EquipoSoporteIntegrantes.Implementation;
 using Nextag.Api.Services.EquipoSoporteIntegrantes.Interface;
 using Nextag.Api.Services.EquiposSoporte.Implementation;
 using Nextag.Api.Services.EquiposSoporte.Interface;
 using Nextag.Api.Services.EstadosActivo.Implementation;
 using Nextag.Api.Services.EstadosActivo.Interface;
+using Nextag.Api.Services.EstadosContrato.Implementation;
+using Nextag.Api.Services.EstadosContrato.Interface;
 using Nextag.Api.Services.EtiquetaConfiguraciones.Implementation;
 using Nextag.Api.Services.EtiquetaConfiguraciones.Interface;
 using Nextag.Api.Services.Etiquetas.Implementation;
@@ -131,6 +135,10 @@ builder.Services.AddScoped<IEstadoActivoService, EstadoActivoService>();
 builder.Services.AddScoped<IProveedorService, ProveedorService>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<ITipoContratoService, TipoContratoService>();
+
+builder.Services.AddScoped<IEstadoContratoService, EstadoContratoService>();
+builder.Services.AddScoped<IContratoService, ContratoService>();
+
 builder.Services.AddScoped<IProveedorContactoService, ProveedorContactoService>();
 builder.Services.AddScoped<ITipoProveedorService, TipoProveedorService>();
 builder.Services.AddScoped<IActivoService, ActivoService>();
