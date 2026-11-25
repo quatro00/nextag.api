@@ -53,6 +53,8 @@ public partial class Proveedor
 
     public virtual ICollection<Activo> ActivoProveedors { get; set; } = new List<Activo>();
 
+    public virtual ICollection<Contrato> Contratos { get; set; } = new List<Contrato>();
+
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual ICollection<EquipoSoporte> EquipoSoportes { get; set; } = new List<EquipoSoporte>();

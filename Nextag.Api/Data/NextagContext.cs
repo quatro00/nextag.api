@@ -40,6 +40,14 @@ public partial class NextagContext : DbContext
 
     public virtual DbSet<CategoriaTicket> CategoriaTickets { get; set; }
 
+    public virtual DbSet<Cliente> Clientes { get; set; }
+
+    public virtual DbSet<Contrato> Contratos { get; set; }
+
+    public virtual DbSet<ContratoActivo> ContratoActivos { get; set; }
+
+    public virtual DbSet<ContratoRenovacion> ContratoRenovacions { get; set; }
+
     public virtual DbSet<Empresa> Empresas { get; set; }
 
     public virtual DbSet<EquipoSoporte> EquipoSoportes { get; set; }
@@ -47,6 +55,8 @@ public partial class NextagContext : DbContext
     public virtual DbSet<EquipoSoporteIntegrante> EquipoSoporteIntegrantes { get; set; }
 
     public virtual DbSet<EstadoActivo> EstadoActivos { get; set; }
+
+    public virtual DbSet<EstadoContrato> EstadoContratos { get; set; }
 
     public virtual DbSet<EstadoOrdenTrabajo> EstadoOrdenTrabajos { get; set; }
 
@@ -101,6 +111,8 @@ public partial class NextagContext : DbContext
     public virtual DbSet<TicketNotificacionPreferencium> TicketNotificacionPreferencia { get; set; }
 
     public virtual DbSet<TicketSeguimiento> TicketSeguimientos { get; set; }
+
+    public virtual DbSet<TipoContrato> TipoContratos { get; set; }
 
     public virtual DbSet<TipoMovimientoActivo> TipoMovimientoActivos { get; set; }
 
@@ -574,6 +586,206 @@ public partial class NextagContext : DbContext
                 .HasConstraintName("FK_CategoriaTicket_Empresa");
         });
 
+        modelBuilder.Entity<Cliente>(entity =>
+        {
+            entity.ToTable("Cliente");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Nombre }, "IX_Cliente_Empresa_Nombre");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_Cliente_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Cliente_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.CodigoPostal).HasMaxLength(15);
+            entity.Property(e => e.Colonia).HasMaxLength(150);
+            entity.Property(e => e.ContactoPrincipal).HasMaxLength(200);
+            entity.Property(e => e.Correo).HasMaxLength(200);
+            entity.Property(e => e.CorreoContacto).HasMaxLength(200);
+            entity.Property(e => e.Direccion).HasMaxLength(300);
+            entity.Property(e => e.Estado).HasMaxLength(150);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Municipio).HasMaxLength(150);
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.Observaciones).HasMaxLength(1000);
+            entity.Property(e => e.Pais).HasMaxLength(100);
+            entity.Property(e => e.RazonSocial).HasMaxLength(250);
+            entity.Property(e => e.Rfc)
+                .HasMaxLength(13)
+                .IsUnicode(false);
+            entity.Property(e => e.SitioWeb).HasMaxLength(250);
+            entity.Property(e => e.Telefono).HasMaxLength(30);
+            entity.Property(e => e.TelefonoContacto).HasMaxLength(30);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Clientes)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Cliente_Empresa");
+        });
+
+        modelBuilder.Entity<Contrato>(entity =>
+        {
+            entity.ToTable("Contrato");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ClienteId }, "IX_Contrato_Empresa_Cliente").HasFilter("([ClienteId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.EstadoContratoId }, "IX_Contrato_Empresa_Estado");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.FechaFin }, "IX_Contrato_Empresa_FechaFin");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ProveedorId }, "IX_Contrato_Empresa_Proveedor").HasFilter("([ProveedorId] IS NOT NULL)");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.TipoContratoId }, "IX_Contrato_Empresa_Tipo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_Contrato_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.NumeroContrato }, "UQ_Contrato_Empresa_Numero").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.EstadoContratoId).HasDefaultValueSql("((1))");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCancelacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaFin).HasColumnType("date");
+            entity.Property(e => e.FechaFinalizacion).HasPrecision(3);
+            entity.Property(e => e.FechaFirma).HasColumnType("date");
+            entity.Property(e => e.FechaInicio).HasColumnType("date");
+            entity.Property(e => e.HorarioAtencion).HasMaxLength(200);
+            entity.Property(e => e.Moneda)
+                .HasMaxLength(3)
+                .IsUnicode(false)
+                .HasDefaultValueSql("('MXN')")
+                .IsFixedLength();
+            entity.Property(e => e.Monto).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.MotivoCancelacion).HasMaxLength(500);
+            entity.Property(e => e.Nombre).HasMaxLength(200);
+            entity.Property(e => e.NumeroContrato).HasMaxLength(50);
+            entity.Property(e => e.PeriodicidadPago)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.TiempoRespuestaHoras).HasColumnType("decimal(10, 2)");
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.Contratos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Contrato_Empresa");
+
+            entity.HasOne(d => d.EstadoContrato).WithMany(p => p.Contratos)
+                .HasForeignKey(d => d.EstadoContratoId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Contrato_EstadoContrato");
+
+            entity.HasOne(d => d.Cliente).WithMany(p => p.Contratos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ClienteId })
+                .HasConstraintName("FK_Contrato_Cliente");
+
+            entity.HasOne(d => d.Proveedor).WithMany(p => p.Contratos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ProveedorId })
+                .HasConstraintName("FK_Contrato_Proveedor");
+
+            entity.HasOne(d => d.TipoContrato).WithMany(p => p.Contratos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.TipoContratoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Contrato_TipoContrato");
+        });
+
+        modelBuilder.Entity<ContratoActivo>(entity =>
+        {
+            entity.ToTable("ContratoActivo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ActivoId, e.FechaExclusion }, "IX_ContratoActivo_Activo");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ContratoId, e.FechaExclusion }, "IX_ContratoActivo_Contrato");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_ContratoActivo_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ContratoId, e.ActivoId }, "UX_ContratoActivo_Vigente")
+                .IsUnique()
+                .HasFilter("([FechaExclusion] IS NULL)");
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaExclusion).HasPrecision(3);
+            entity.Property(e => e.FechaInclusion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.MotivoExclusion).HasMaxLength(500);
+            entity.Property(e => e.Observaciones).HasMaxLength(1000);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.ContratoActivos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ContratoActivo_Empresa");
+
+            entity.HasOne(d => d.Activo).WithMany(p => p.ContratoActivos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ActivoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ContratoActivo_Activo");
+
+            entity.HasOne(d => d.Contrato).WithMany(p => p.ContratoActivos)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ContratoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ContratoActivo_Contrato");
+        });
+
+        modelBuilder.Entity<ContratoRenovacion>(entity =>
+        {
+            entity.ToTable("ContratoRenovacion");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ContratoId, e.FechaRenovacion }, "IX_ContratoRenovacion_Historial").IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_ContratoRenovacion_Empresa_Id").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.ContratoId, e.NumeroRenovacion }, "UQ_ContratoRenovacion_Numero").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.FechaFinAnterior).HasColumnType("date");
+            entity.Property(e => e.FechaFinNueva).HasColumnType("date");
+            entity.Property(e => e.FechaInicioAnterior).HasColumnType("date");
+            entity.Property(e => e.FechaInicioNueva).HasColumnType("date");
+            entity.Property(e => e.FechaRenovacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.MontoAnterior).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.MontoNuevo).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.Motivo).HasMaxLength(500);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.ContratoRenovacions)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ContratoRenovacion_Empresa");
+
+            entity.HasOne(d => d.Contrato).WithMany(p => p.ContratoRenovacions)
+                .HasPrincipalKey(p => new { p.EmpresaId, p.Id })
+                .HasForeignKey(d => new { d.EmpresaId, d.ContratoId })
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ContratoRenovacion_Contrato");
+        });
+
         modelBuilder.Entity<Empresa>(entity =>
         {
             entity.ToTable("Empresa");
@@ -679,6 +891,23 @@ public partial class NextagContext : DbContext
                 .IsRequired()
                 .HasDefaultValueSql("((1))");
             entity.Property(e => e.Clave).HasMaxLength(50);
+            entity.Property(e => e.Descripcion).HasMaxLength(300);
+            entity.Property(e => e.Nombre).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<EstadoContrato>(entity =>
+        {
+            entity.ToTable("EstadoContrato");
+
+            entity.HasIndex(e => e.Clave, "UQ_EstadoContrato_Clave").IsUnique();
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave)
+                .HasMaxLength(30)
+                .IsUnicode(false);
             entity.Property(e => e.Descripcion).HasMaxLength(300);
             entity.Property(e => e.Nombre).HasMaxLength(100);
         });
@@ -1627,6 +1856,32 @@ public partial class NextagContext : DbContext
                 .HasForeignKey(d => new { d.EmpresaId, d.TicketId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_TicketSeguimiento_Ticket");
+        });
+
+        modelBuilder.Entity<TipoContrato>(entity =>
+        {
+            entity.ToTable("TipoContrato");
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Clave }, "UQ_TipoContrato_Empresa_Clave").IsUnique();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.Id }, "UQ_TipoContrato_Empresa_Id").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Activo)
+                .IsRequired()
+                .HasDefaultValueSql("((1))");
+            entity.Property(e => e.Clave).HasMaxLength(30);
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+            entity.Property(e => e.FechaActualizacion).HasPrecision(3);
+            entity.Property(e => e.FechaCreacion)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Nombre).HasMaxLength(150);
+
+            entity.HasOne(d => d.Empresa).WithMany(p => p.TipoContratos)
+                .HasForeignKey(d => d.EmpresaId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TipoContrato_Empresa");
         });
 
         modelBuilder.Entity<TipoMovimientoActivo>(entity =>

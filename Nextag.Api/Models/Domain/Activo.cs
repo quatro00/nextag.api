@@ -67,6 +67,8 @@ public partial class Activo
 
     public virtual CategoriaActivo CategoriaActivo { get; set; } = null!;
 
+    public virtual ICollection<ContratoActivo> ContratoActivos { get; set; } = new List<ContratoActivo>();
+
     public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual EstadoActivo EstadoActivo { get; set; } = null!;
