@@ -701,19 +701,6 @@ namespace Nextag.Api.Services.Contratos.Implementation
                     "El contrato se encuentra dado de baja.");
             }
 
-            // Si ya se encuentra en el estado solicitado,
-            // devolver su información sin modificar la auditoría.
-
-            if (contrato.EstadoContratoId == estadoDestino)
-            {
-                var actual = await GetByIdAsync(
-                    id,
-                    empresaId,
-                    ct);
-
-                return ServiceResult<ContratoDetalleDto>.Ok(actual!);
-            }
-
             var hoy = ObtenerHoy();
 
             var estadoActual = contrato.EstadoContratoId;
@@ -731,6 +718,19 @@ namespace Nextag.Api.Services.Contratos.Implementation
                 ))
             {
                 estadoActual = EstadosContratoEnum.Vencido;
+            }
+
+            // Verificar si el contrato ya se encuentra
+            // efectivamente en el estado solicitado.
+
+            if (estadoActual == estadoDestino)
+            {
+                var actual = await GetByIdAsync(
+                    id,
+                    empresaId,
+                    ct);
+
+                return ServiceResult<ContratoDetalleDto>.Ok(actual!);
             }
 
             if (!estadosPermitidos.Contains(estadoActual))
