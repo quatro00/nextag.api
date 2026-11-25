@@ -25,6 +25,8 @@ using Nextag.Api.Services.CategoriasTicket.Implementation;
 using Nextag.Api.Services.CategoriasTicket.Interface;
 using Nextag.Api.Services.Clientes.Implementation;
 using Nextag.Api.Services.Clientes.Interface;
+using Nextag.Api.Services.ContratoActivos.Implementation;
+using Nextag.Api.Services.ContratoActivos.Interface;
 using Nextag.Api.Services.Contratos.Implementation;
 using Nextag.Api.Services.Contratos.Interface;
 using Nextag.Api.Services.EquipoSoporteIntegrantes.Implementation;
@@ -138,6 +140,7 @@ builder.Services.AddScoped<ITipoContratoService, TipoContratoService>();
 
 builder.Services.AddScoped<IEstadoContratoService, EstadoContratoService>();
 builder.Services.AddScoped<IContratoService, ContratoService>();
+builder.Services.AddScoped<IContratoActivoService, ContratoActivoService>();
 
 builder.Services.AddScoped<IProveedorContactoService, ProveedorContactoService>();
 builder.Services.AddScoped<ITipoProveedorService, TipoProveedorService>();
