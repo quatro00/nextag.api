@@ -27,6 +27,8 @@ using Nextag.Api.Services.Clientes.Implementation;
 using Nextag.Api.Services.Clientes.Interface;
 using Nextag.Api.Services.ContratoActivos.Implementation;
 using Nextag.Api.Services.ContratoActivos.Interface;
+using Nextag.Api.Services.ContratoRenovaciones.Implementation;
+using Nextag.Api.Services.ContratoRenovaciones.Interface;
 using Nextag.Api.Services.Contratos.Implementation;
 using Nextag.Api.Services.Contratos.Interface;
 using Nextag.Api.Services.EquipoSoporteIntegrantes.Implementation;
@@ -141,6 +143,7 @@ builder.Services.AddScoped<ITipoContratoService, TipoContratoService>();
 builder.Services.AddScoped<IEstadoContratoService, EstadoContratoService>();
 builder.Services.AddScoped<IContratoService, ContratoService>();
 builder.Services.AddScoped<IContratoActivoService, ContratoActivoService>();
+builder.Services.AddScoped<IContratoRenovacionService, ContratoRenovacionService>();
 
 builder.Services.AddScoped<IProveedorContactoService, ProveedorContactoService>();
 builder.Services.AddScoped<ITipoProveedorService, TipoProveedorService>();
